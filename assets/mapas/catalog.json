@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Pearl",
+    "file": "pearl.png"
+  },
+  {
+    "name": "Breeze",
+    "file": "breeze.png"
+  },
+  {
+    "name": "Corrode",
+    "file": "corrode.png"
+  },
+  {
+    "name": "Split",
+    "file": "split.png"
+  },
+  {
+    "name": "Abyss",
+    "file": "abyss.png"
+  },
+  {
+    "name": "Haven",
+    "file": "haven.png"
+  },
+  {
+    "name": "Bind",
+    "file": "bind.png"
+  },
+  {
+    "name": "Ascent",
+    "file": "ascent.png"
+  },
+  {
+    "name": "Fracture",
+    "file": "fracture.png"
+  },
+  {
+    "name": "Icebox",
+    "file": "icebox.png"
+  },
+  {
+    "name": "Lotus",
+    "file": "lotus.png"
+  },
+  {
+    "name": "Sunset",
+    "file": "sunset.png"
+  }
+]

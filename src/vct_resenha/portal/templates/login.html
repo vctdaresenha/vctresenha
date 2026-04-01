@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block body_class %}portal-body login-body{% endblock %}
+{% block page_shell_class %}login-page-shell{% endblock %}
+
+{% block page_header %}
+<header class="brand-header login-page-header">
+  <img class="brand-logo" src="{{ brand_logo_url }}" alt="{{ site.title }}">
+  <p class="eyebrow">{{ site.login_eyebrow }}</p>
+  <h1>{{ site.login_title }}</h1>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="auth-shell">
+  <article class="glass-card auth-card auth-card-clean">
+    <div class="auth-welcome">
+      <h2>{{ site.login_welcome_title }}</h2>
+      <p>{{ site.login_welcome_text }}</p>
+    </div>
+
+    {% if discord_enabled %}
+      {% if captcha_enabled %}
+      <form action="/auth/captcha" method="post" class="stack-form">
+        <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
+        <button class="primary-button" type="submit">{{ site.login_button_label }}</button>
+      </form>
+      {% else %}
+      <a class="primary-button link-button" href="/auth/discord">{{ site.login_button_label }}</a>
+      {% endif %}
+      {% if message %}
+      <p class="{% if message_type == 'error' %}inline-error{% else %}inline-message{% endif %} login-status-message">{{ message }}</p>
+      {% elif site.login_help_text %}
+      <p class="inline-message login-status-message">{{ site.login_help_text }}</p>
+      {% endif %}
+    {% else %}
+    <p class="inline-error login-status-message">{{ site.discord_missing_message }}</p>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}
+
+{% block page_footer %}
+<footer class="footer-grid compact-footer-grid">
+  {% for item in site.footer_items %}
+    <article class="footer-card compact-footer-card">
+      <span>{{ item.label }}</span>
+      <strong>{{ item.value }}</strong>
+    </article>
+  {% endfor %}
+</footer>
+{% endblock %}

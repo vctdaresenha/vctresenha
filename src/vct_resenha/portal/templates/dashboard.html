@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block body_class %}portal-body dashboard-body{% endblock %}
+{% block page_shell_class %}dashboard-page-shell{% endblock %}
+
+{% block page_header %}
+<header class="brand-header dashboard-page-header">
+  <img class="brand-logo" src="{{ brand_logo_url }}" alt="{{ site.title }}">
+  <p class="eyebrow">{{ site.dashboard_eyebrow }}</p>
+  <h1>{{ site.dashboard_title }}</h1>
+  <p class="subtitle">{{ site.dashboard_subtitle }}</p>
+</header>
+{% endblock %}
+
+{% block content %}
+{% set approved = dashboard.accepted_team %}
+{% set submission = dashboard.latest_submission %}
+{% set preview_team = submission if submission else approved %}
+{% set current_status = submission.status if submission else ('approved' if approved else 'idle') %}
+<section class="dashboard-grid dashboard-grid-clean">
+  <article class="glass-card status-card status-card-clean">
+    <div class="title-row">
+      <div class="stack-heading">
+        <span class="card-kicker">Conta principal</span>
+        <h2>{{ user.global_name or user.username }}</h2>
+        <p class="helper-text compact-copy">Gerencie o envio do elenco e acompanhe cada etapa da analise por aqui.</p>
+      </div>
+      <a class="ghost-button" href="/logout">Sair</a>
+    </div>
+
+    {% if success_message %}
+    <p class="inline-message success">{{ success_message }}</p>
+    {% endif %}
+    {% if error_message %}
+    <p class="inline-error">{{ error_message }}</p>
+    {% endif %}
+
+    <div class="status-blocks status-blocks-clean">
+      <div class="status-pill {{ current_status }}">
+        <span>Status da analise</span>
+        <strong>
+          {% if submission %}
+            {% if submission.status == 'pending' %}Em análise{% elif submission.status == 'approved' %}Aprovado{% else %}Recusado{% endif %}
+          {% else %}
+            Sem envio
+          {% endif %}
+        </strong>
+      </div>
+      <div class="status-pill approved">
+        <span>Time ativo no portal</span>
+        <strong>{{ approved.name if approved else 'Aguardando aprovação' }}</strong>
+      </div>
+      <div class="status-pill neutral">
+        <span>Ultima atualizacao</span>
+        <strong>
+          {% if submission %}
+            {{ submission.submitted_at|friendly_datetime }}
+          {% elif approved %}
+            {{ approved.updated_at|friendly_datetime }}
+          {% else %}
+            -
+          {% endif %}
+        </strong>
+      </div>
+    </div>
+
+    <div class="analysis-card {{ current_status }}">
+      <span class="card-kicker">Analise da producao</span>
+      {% if submission and submission.status == 'pending' %}
+      <h3>Aguardando aprovação</h3>
+      <p class="helper-text">Seu envio ja entrou na fila. Assim que a producao concluir a revisao, o time aprovado aparece automaticamente no portal e no aplicativo.</p>
+      {% elif submission and submission.status == 'approved' %}
+      <h3>Time aprovado</h3>
+      <p class="helper-text">O elenco enviado foi aprovado e ja pode ser sincronizado no painel administrativo.</p>
+      {% elif submission and submission.status == 'rejected' %}
+      <h3>Ajuste necessario</h3>
+      <p class="helper-text">Revise as observacoes da producao, ajuste o formulario e envie novamente.</p>
+      {% elif approved %}
+      <h3>Time ativo no portal</h3>
+      <p class="helper-text">Nao ha nenhuma alteracao pendente. Se precisar mexer no elenco, envie uma nova solicitacao.</p>
+      {% else %}
+      <h3>Nenhum envio realizado</h3>
+      <p class="helper-text">Preencha o formulario ao lado para colocar seu time na fila de analise.</p>
+      {% endif %}
+    </div>
+
+    {% if preview_team %}
+    <div class="team-summary team-summary-clean">
+      <div class="section-head">
+        <div>
+          <span class="card-kicker">{% if submission and submission.status == 'pending' %}Ultimo envio{% elif submission and submission.status == 'rejected' %}Envio mais recente{% else %}Time visivel no portal{% endif %}</span>
+          <h3>{{ preview_team.name }}</h3>
+        </div>
+      </div>
+      <div class="summary-head">
+        <img class="team-logo" src="{{ preview_team.logo_url }}" alt="{{ preview_team.name }}">
+        <div>
+          <h3>{{ preview_team.name }}</h3>
+          <p>Coach: {{ preview_team.coach }}</p>
+        </div>
+      </div>
+      <div class="player-grid">
+        {% for player in preview_team.players %}
+        <div class="player-chip {% if loop.first %}captain{% endif %}">
+          <span>{% if loop.first %}Capitão{% else %}Jogador {{ loop.index }}{% endif %}</span>
+          <strong>{{ player }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if submission and submission.review_notes %}
+    <div class="review-note">
+      <span>Retorno da produção</span>
+      <strong>{{ submission.review_notes }}</strong>
+    </div>
+    {% endif %}
+  </article>
+
+  <article class="glass-card form-card form-card-clean">
+    <div class="stack-heading">
+      <span class="card-kicker">Formulario</span>
+      <h2>{% if approved %}{{ site.dashboard_form_title_edit }}{% else %}{{ site.dashboard_form_title_new }}{% endif %}</h2>
+      <p class="helper-text">{{ site.dashboard_form_helper_text }}</p>
+    </div>
+
+    <form action="/portal/team" method="post" enctype="multipart/form-data" class="stack-form">
+      <div class="field-grid two-columns">
+        <label>
+          <span>Nome do time</span>
+          <input name="name" maxlength="10" pattern="[A-Za-z0-9]+" required value="{{ (submission.name if submission else (approved.name if approved else '')) }}">
+        </label>
+        <label>
+          <span>Coach</span>
+          <input name="coach" required value="{{ (submission.coach if submission else (approved.coach if approved else '')) }}">
+        </label>
+      </div>
+
+      <label>
+        <span>Logo PNG 1:1 até 512x512</span>
+        <input name="logo" type="file" accept="image/png" required>
+      </label>
+
+      {% set players = submission.players if submission else (approved.players if approved else ['', '', '', '', '']) %}
+      <div class="field-grid two-columns">
+        <label>
+          <span>Capitão</span>
+          <input name="captain" placeholder="Nick#TAG" required value="{{ players[0] if players|length > 0 else '' }}">
+        </label>
+        <label>
+          <span>Jogador 2</span>
+          <input name="player_two" placeholder="Nick#TAG" required value="{{ players[1] if players|length > 1 else '' }}">
+        </label>
+        <label>
+          <span>Jogador 3</span>
+          <input name="player_three" placeholder="Nick#TAG" required value="{{ players[2] if players|length > 2 else '' }}">
+        </label>
+        <label>
+          <span>Jogador 4</span>
+          <input name="player_four" placeholder="Nick#TAG" required value="{{ players[3] if players|length > 3 else '' }}">
+        </label>
+        <label class="full-width">
+          <span>Jogador 5</span>
+          <input name="player_five" placeholder="Nick#TAG" required value="{{ players[4] if players|length > 4 else '' }}">
+        </label>
+      </div>
+
+      <label class="terms-row">
+        <input name="accept_terms" type="checkbox" value="1" required>
+        <span>{{ site.terms_label }}</span>
+      </label>
+
+      <button class="primary-button" type="submit">{{ site.dashboard_submit_label }}</button>
+    </form>
+  </article>
+</section>
+{% endblock %}
+
+{% block page_footer %}{% endblock %}

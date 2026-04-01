@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+data/championship_state.json
+
+.venv/
+data/
+*.sqlite3
+config/app_settings.json

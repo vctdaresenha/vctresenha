@@ -1,0 +1,10 @@
+Pillow
+discord.py
+fastapi
+uvicorn[standard]
+sqlalchemy
+authlib
+httpx
+python-multipart
+jinja2
+itsdangerous

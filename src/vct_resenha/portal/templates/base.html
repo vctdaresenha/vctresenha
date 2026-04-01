@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ site.title }}</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/static/portal.css">
+    {% if turnstile_site_key %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endif %}
+  </head>
+  <body class="{% block body_class %}portal-body{% endblock %}">
+    <div class="page-shell {% block page_shell_class %}{% endblock %}">
+      {% block page_header %}
+      <header class="brand-header">
+        <img class="brand-logo" src="{{ brand_logo_url }}" alt="{{ site.title }}">
+        <p class="eyebrow">{{ site.login_eyebrow }}</p>
+        <h1>{{ site.headline }}</h1>
+        <p class="subtitle">{{ site.subheadline }}</p>
+      </header>
+      {% endblock %}
+
+      <main class="content-shell">
+        {% block content %}{% endblock %}
+      </main>
+
+      {% block page_footer %}
+      <footer class="footer-grid">
+        {% for item in site.footer_items %}
+        <article class="footer-card">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </article>
+        {% endfor %}
+      </footer>
+      {% endblock %}
+    </div>
+  </body>
+</html>

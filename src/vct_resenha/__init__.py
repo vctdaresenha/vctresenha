@@ -1,0 +1,1 @@
+"""VCT da Resenha desktop app."""
