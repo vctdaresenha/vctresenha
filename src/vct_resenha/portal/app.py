@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -54,7 +55,7 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
         secret_key=settings.portal.session_secret or "change-me-session-secret",
         same_site="lax",
         https_only=settings.portal.base_url.startswith("https://"),
-        max_age=60 * 60 * 12,
+        max_age=60 * 60 * settings.portal.session_max_age_hours,
     )
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     templates = Jinja2Templates(directory=str(templates_dir))
@@ -92,6 +93,7 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
         if user is None:
             request.session.clear()
             raise HTTPException(status_code=401, detail="Usuario nao encontrado.")
+        request.session["portal_session_last_seen"] = datetime.now(UTC).isoformat()
         return user
 
     def build_template_context(request: FastAPIRequest, extra: dict | None = None) -> dict:

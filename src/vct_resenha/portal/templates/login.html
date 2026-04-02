@@ -29,9 +29,9 @@
       <a class="primary-button link-button" href="/auth/discord">{{ site.login_button_label }}</a>
       {% endif %}
       {% if message %}
-      <p class="{% if message_type == 'error' %}inline-error{% else %}inline-message{% endif %} login-status-message">{{ message }}</p>
+      <p class="{% if message_type == 'error' %}inline-error{% else %}login-help-message{% endif %} login-status-message">{{ message }}</p>
       {% elif site.login_help_text %}
-      <p class="inline-message login-status-message">{{ site.login_help_text }}</p>
+      <p class="login-help-message login-status-message">{{ site.login_help_text }}</p>
       {% endif %}
     {% else %}
     <p class="inline-error login-status-message">{{ site.discord_missing_message }}</p>

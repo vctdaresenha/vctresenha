@@ -24,6 +24,7 @@ DEFAULT_SETTINGS = {
         "database_path": "data/portal.sqlite3",
         "admin_token": "change-me-admin-token",
         "session_secret": "change-me-session-secret",
+        "session_max_age_hours": 720,
         "discord_client_id": "",
         "discord_client_secret": "",
         "discord_redirect_uri": "http://127.0.0.1:8000/auth/discord/callback",
@@ -80,6 +81,7 @@ class PortalSettings:
     database_path: str
     admin_token: str
     session_secret: str
+    session_max_age_hours: int
     discord_client_id: str
     discord_client_secret: str
     discord_redirect_uri: str
@@ -216,6 +218,7 @@ def load_app_settings(base_path: Path | None = None) -> AppSettings:
             database_path=str(portal_payload.get("database_path", "data/portal.sqlite3")),
             admin_token=str(portal_payload.get("admin_token", "change-me-admin-token")),
             session_secret=str(portal_payload.get("session_secret", "change-me-session-secret")),
+            session_max_age_hours=max(1, int(portal_payload.get("session_max_age_hours", 720))),
             discord_client_id=str(portal_payload.get("discord_client_id", "")).strip(),
             discord_client_secret=str(portal_payload.get("discord_client_secret", "")).strip(),
             discord_redirect_uri=str(portal_payload.get("discord_redirect_uri", "")).strip(),

@@ -175,6 +175,19 @@ body {
   width: 100%;
 }
 
+.inline-error.login-status-message {
+  margin-top: 60px;
+}
+
+.login-help-message {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .accent-card::after {
   content: "";
   position: absolute;
