@@ -171,12 +171,12 @@ body {
 }
 
 .login-status-message {
-  margin-top: 44px;
+  margin-top: 50px;
   width: 100%;
 }
 
 .inline-error.login-status-message {
-  margin-top: 60px;
+  margin-top: 56px;
 }
 
 .login-help-message {
@@ -511,6 +511,42 @@ input[type="file"] {
 .analysis-card.rejected {
   background: rgba(239, 125, 125, 0.08);
   border-color: rgba(239, 125, 125, 0.22);
+}
+
+.discord-notice-card {
+  background: linear-gradient(180deg, rgba(88, 101, 242, 0.2) 0%, rgba(71, 82, 196, 0.16) 100%);
+  border-color: rgba(88, 101, 242, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.discord-notice-card .card-kicker,
+.discord-notice-card .helper-text {
+  color: rgba(237, 240, 255, 0.82);
+}
+
+.discord-notice-card h3 {
+  color: #ffffff;
+}
+
+.discord-notice-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  width: fit-content;
+  padding: 0 18px;
+  border-radius: 14px;
+  background: #5865f2;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+  transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+}
+
+.discord-notice-link:hover {
+  transform: translateY(-1px);
+  opacity: 0.96;
+  background: #6b77f5;
 }
 
 .section-head {

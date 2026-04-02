@@ -64,24 +64,11 @@
       </div>
     </div>
 
-    <div class="analysis-card {{ current_status }}">
-      <span class="card-kicker">Analise da producao</span>
-      {% if submission and submission.status == 'pending' %}
-      <h3>Aguardando aprovação</h3>
-      <p class="helper-text">Seu envio ja entrou na fila. Assim que a producao concluir a revisao, o time aprovado aparece automaticamente no portal e no aplicativo.</p>
-      {% elif submission and submission.status == 'approved' %}
-      <h3>Time aprovado</h3>
-      <p class="helper-text">O elenco enviado foi aprovado e ja pode ser sincronizado no painel administrativo.</p>
-      {% elif submission and submission.status == 'rejected' %}
-      <h3>Ajuste necessario</h3>
-      <p class="helper-text">Revise as observacoes da producao, ajuste o formulario e envie novamente.</p>
-      {% elif approved %}
-      <h3>Time ativo no portal</h3>
-      <p class="helper-text">Nao ha nenhuma alteracao pendente. Se precisar mexer no elenco, envie uma nova solicitacao.</p>
-      {% else %}
-      <h3>Nenhum envio realizado</h3>
-      <p class="helper-text">Preencha o formulario ao lado para colocar seu time na fila de analise.</p>
-      {% endif %}
+    <div class="analysis-card discord-notice-card">
+      <span class="card-kicker">Servidor oficial no Discord</span>
+      <h3>Todos os membros do time precisam entrar no servidor</h3>
+      <p class="helper-text">Antes de enviar ou alterar o elenco, garanta que capitão, coach e jogadores já estejam no Discord oficial do campeonato.</p>
+      <a class="discord-notice-link" href="https://discord.gg/QtnuVxR2r8" target="_blank" rel="noreferrer">Entrar no servidor</a>
     </div>
 
     {% if preview_team %}
@@ -110,7 +97,7 @@
     </div>
     {% endif %}
 
-    {% if submission and submission.review_notes %}
+    {% if submission and submission.review_notes and submission.status == 'rejected' %}
     <div class="review-note">
       <span>Retorno da produção</span>
       <strong>{{ submission.review_notes }}</strong>
