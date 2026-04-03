@@ -443,16 +443,27 @@ input[type="file"] {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.player-chip {
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.player-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .player-link-chip {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
   color: var(--text);
   text-decoration: none;
   font-weight: 700;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .player-link-chip:hover {
-  text-decoration: underline;
+  color: #ffffff;
 }
 
 .terms-row {
@@ -471,6 +482,13 @@ input[type="file"] {
   display: grid;
 }
 
+.terms-consent-card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .form-fieldset {
   display: grid;
   gap: 18px;
@@ -487,7 +505,7 @@ input[type="file"] {
 .terms-trigger {
   width: 100%;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   padding: 0;
   border: 0;
@@ -495,20 +513,22 @@ input[type="file"] {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-.terms-trigger span:last-child {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+.terms-copy {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
   line-height: 1.45;
 }
 
 .terms-checkbox-indicator {
   width: 18px;
   height: 18px;
-  margin-top: 2px;
   flex: 0 0 auto;
   border-radius: 5px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -533,12 +553,16 @@ input[type="file"] {
   transform: rotate(45deg);
 }
 
-.terms-trigger[data-accepted="true"] span:last-child {
+.terms-trigger[data-accepted="true"] .terms-copy {
   color: #d8fff0;
 }
 
 .modal-open {
   overflow: hidden;
+}
+
+.terms-modal[hidden] {
+  display: none !important;
 }
 
 .terms-modal {
@@ -803,4 +827,10 @@ input[type="file"] {
     max-height: 88vh;
     padding: 22px;
   }
+}
+
+.submit-team-button {
+  width: fit-content;
+  min-width: 180px;
+  justify-self: center;
 }

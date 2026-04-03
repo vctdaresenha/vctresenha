@@ -167,14 +167,14 @@
 
       <input id="accept_terms" name="accept_terms" type="hidden" value="">
 
-      <div class="terms-consent">
+      <div class="terms-consent terms-consent-card">
         <button id="terms-trigger" class="terms-trigger" type="button" aria-haspopup="dialog" aria-controls="terms-modal" data-accepted="false">
           <span class="terms-checkbox-indicator" aria-hidden="true"></span>
-          <span>{{ site.terms_label }}</span>
+          <span class="terms-copy">{{ site.terms_label }}</span>
         </button>
       </div>
 
-      <button class="primary-button" type="submit">{{ site.dashboard_submit_label }}</button>
+      <button class="primary-button submit-team-button" type="submit">{{ site.dashboard_submit_label }}</button>
       </fieldset>
     </form>
   </article>
