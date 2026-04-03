@@ -632,7 +632,7 @@ Depois que tudo estiver configurado, o fluxo fica assim:
 
 ```bash
 git add .
-git commit -m "sua alteracao"
+git commit -m "atualização"
 git push origin main
 ```
 

@@ -194,19 +194,19 @@
     <div id="terms-scrollbox" class="terms-scrollbox">
       {% for section in site.terms_sections %}
       <section class="terms-section">
-        <h3>{{ section.title }}</h3>
-        {% for block in section.blocks %}
-          {% if block.type == 'list' %}
-            {% if block.title %}
-            <p>{{ block.title }}</p>
+        <h3>{{ section["title"] }}</h3>
+        {% for block in section["blocks"] %}
+          {% if block["type"] == 'list' %}
+            {% if block["title"] %}
+            <p>{{ block["title"] }}</p>
             {% endif %}
             <ul class="terms-list">
-              {% for item in block.items %}
+              {% for item in block["items"] %}
               <li>{{ item }}</li>
               {% endfor %}
             </ul>
           {% else %}
-            <p>{{ block.text }}</p>
+            <p>{{ block["text"] }}</p>
           {% endif %}
         {% endfor %}
       </section>
