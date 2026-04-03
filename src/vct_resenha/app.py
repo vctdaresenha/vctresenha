@@ -106,6 +106,8 @@ class ChampionshipApp(tk.Tk):
         self.admin_team_form_state: list[dict] = []
         self.portal_pending_submissions: list[dict] = []
         self.portal_registrations_open = True
+        self.app_feedback_var = tk.StringVar(value="")
+        self.app_feedback_clear_job: str | None = None
         self.mousewheel_routes: dict[str, tk.Widget] = {}
         self.map_catalog = self._build_fallback_map_catalog()
         self.map_catalog_loaded = True
@@ -227,12 +229,48 @@ class ChampionshipApp(tk.Tk):
         drag_fill.bind("<ButtonPress-1>", self._begin_native_drag)
         drag_fill.bind("<Double-Button-1>", lambda _event: self._toggle_maximize())
 
+        self.app_feedback_label = tk.Label(
+            self.title_bar,
+            textvariable=self.app_feedback_var,
+            bg="#070707",
+            fg="#9ca3ad",
+            anchor="e",
+            font=(self.title_font_family, 10, "bold"),
+            padx=12,
+        )
+        self.app_feedback_label.pack(side="right")
+
         controls = tk.Frame(self.title_bar, bg="#070707")
         controls.pack(side="right")
 
         self.minimize_button = self._create_titlebar_button(controls, "_", self._minimize_window)
         self.maximize_button = self._create_titlebar_button(controls, "[ ]", self._toggle_maximize)
         self.close_button = self._create_titlebar_button(controls, "X", self.destroy, hover_bg="#b00020")
+
+    def _clear_app_feedback(self) -> None:
+        self.app_feedback_clear_job = None
+        if hasattr(self, "app_feedback_var"):
+            self.app_feedback_var.set("")
+
+    def _set_app_feedback(self, message: str, tone: str = "info", persist_ms: int = 4200) -> None:
+        palette = {
+            "info": "#aeb7c2",
+            "success": "#7ed7a7",
+            "warning": "#f0c36c",
+            "error": "#ef8f8f",
+        }
+        feedback_text = str(message or "").strip()
+        if not feedback_text:
+            self._clear_app_feedback()
+            return
+        self.app_feedback_var.set(feedback_text)
+        if hasattr(self, "app_feedback_label"):
+            self.app_feedback_label.configure(fg=palette.get(tone, palette["info"]))
+        if self.app_feedback_clear_job is not None:
+            self.after_cancel(self.app_feedback_clear_job)
+            self.app_feedback_clear_job = None
+        if persist_ms > 0:
+            self.app_feedback_clear_job = self.after(persist_ms, self._clear_app_feedback)
 
     def _build_resize_handles(self) -> None:
         handle_specs = {
@@ -1009,14 +1047,14 @@ class ChampionshipApp(tk.Tk):
     def _open_portal_site(self) -> None:
         portal_url = self.settings.portal.base_url.strip()
         if not portal_url:
-            messagebox.showwarning("Portal", "Defina portal.base_url em config/app_settings.json antes de abrir o site.")
+            self._set_app_feedback("Defina portal.base_url em config/app_settings.json antes de abrir o site.", tone="warning")
             return
         webbrowser.open(portal_url)
 
     def _open_portal_page(self, url: str, missing_message: str) -> None:
         normalized_url = str(url or "").strip()
         if not normalized_url:
-            messagebox.showwarning("Portal", missing_message)
+            self._set_app_feedback(missing_message, tone="warning")
             return
         webbrowser.open(normalized_url)
 
@@ -1448,7 +1486,7 @@ class ChampionshipApp(tk.Tk):
             return
         selection = self.portal_pending_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Portal", "Selecione uma submissao antes de abrir a pagina do time.")
+            self._set_app_feedback("Selecione uma submissao antes de abrir a pagina do time.", tone="warning")
             return
         submission = self.portal_pending_submissions[selection[0]]
         self._open_portal_page(
@@ -1458,46 +1496,46 @@ class ChampionshipApp(tk.Tk):
 
     def _toggle_portal_registrations(self) -> None:
         next_state = not self.portal_registrations_open
-        action_label = "abrir" if next_state else "fechar"
-        if not messagebox.askyesno("Portal", f"Deseja {action_label} as inscrições do site agora?"):
-            return
         try:
             payload = self.portal_client.set_registrations_open(next_state)
         except PortalClientError as exc:
-            messagebox.showerror("Portal", str(exc))
+            self._set_app_feedback(str(exc), tone="error", persist_ms=7000)
             return
         self.portal_registrations_open = bool(payload.get("registrations_open", next_state))
         self._refresh_portal_admin_dashboard()
-        messagebox.showinfo("Portal", f"Inscrições {'abertas' if self.portal_registrations_open else 'fechadas'} com sucesso.")
+        self._set_app_feedback(
+            f"Inscricoes {'abertas' if self.portal_registrations_open else 'fechadas'} com sucesso.",
+            tone="success",
+        )
 
     def _approve_selected_portal_submission(self) -> None:
         if not hasattr(self, "portal_pending_listbox"):
             return
         selection = self.portal_pending_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Portal", "Selecione uma submissao antes de aprovar.")
+            self._set_app_feedback("Selecione uma submissao antes de aprovar.", tone="warning")
             return
         submission = self.portal_pending_submissions[selection[0]]
         api_keys = self._ensure_henrik_api_keys()
         if not api_keys:
-            messagebox.showwarning("Portal", "Configure ao menos uma chave da API HenrikDev antes de aprovar times.")
+            self._set_app_feedback("Configure ao menos uma chave da API HenrikDev antes de aprovar times.", tone="warning", persist_ms=7000)
             return
         try:
             self.portal_client.approve_submission(int(submission.get("id", 0)), api_keys)
         except PortalClientError as exc:
-            messagebox.showerror("Portal", str(exc))
+            self._set_app_feedback(str(exc), tone="error", persist_ms=7000)
             return
 
         self._refresh_portal_admin_dashboard()
         self._import_approved_teams_from_portal(show_message=False)
-        messagebox.showinfo("Portal", "Submissao aprovada e times sincronizados com o aplicativo.")
+        self._set_app_feedback("Submissao aprovada e times sincronizados com o aplicativo.", tone="success")
 
     def _reject_selected_portal_submission(self) -> None:
         if not hasattr(self, "portal_pending_listbox"):
             return
         selection = self.portal_pending_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Portal", "Selecione uma submissao antes de recusar.")
+            self._set_app_feedback("Selecione uma submissao antes de recusar.", tone="warning")
             return
 
         reason = simpledialog.askstring("Portal", "Motivo da recusa:", parent=self)
@@ -1508,18 +1546,18 @@ class ChampionshipApp(tk.Tk):
         try:
             self.portal_client.reject_submission(int(submission.get("id", 0)), reason)
         except PortalClientError as exc:
-            messagebox.showerror("Portal", str(exc))
+            self._set_app_feedback(str(exc), tone="error", persist_ms=7000)
             return
 
         self._refresh_portal_admin_dashboard()
-        messagebox.showinfo("Portal", "Submissao recusada.")
+        self._set_app_feedback("Submissao recusada.", tone="success")
 
     def _import_approved_teams_from_portal(self, show_message: bool = True) -> None:
         try:
             imported_profiles = self.portal_client.sync_approved_profiles(self._get_team_logo_storage_dir() / "portal")
         except PortalClientError as exc:
             if show_message:
-                messagebox.showerror("Portal", str(exc))
+                self._set_app_feedback(str(exc), tone="error", persist_ms=7000)
             return
 
         total_profiles = len(imported_profiles)
@@ -1546,7 +1584,7 @@ class ChampionshipApp(tk.Tk):
         self._populate_widgets_from_state()
         self._refresh_everything(preserve_selected_match=True)
         if show_message:
-            messagebox.showinfo("Portal", "Times aprovados importados com sucesso para o aplicativo.")
+            self._set_app_feedback("Times aprovados importados com sucesso para o aplicativo.", tone="success")
 
     def _load_selected_team_profile(self, _event=None) -> None:
         selection = self.admin_team_slot_listbox.curselection()
@@ -1584,7 +1622,7 @@ class ChampionshipApp(tk.Tk):
     def _save_current_team_profile(self) -> None:
         selection = self.admin_team_slot_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Painel", "Selecione um slot de time antes de salvar.")
+            self._set_app_feedback("Selecione um slot de time antes de salvar.", tone="warning")
             return
         slot_index = selection[0]
         profiles = self._get_team_profiles()
@@ -1603,7 +1641,8 @@ class ChampionshipApp(tk.Tk):
         self._refresh_everything(preserve_selected_match=True)
         self._refresh_admin_team_slots()
         self._populate_admin_bracket_from_profiles()
-        messagebox.showinfo("Painel", "Time salvo com sucesso.")
+        self.admin_team_editor_feedback_var.set("Time salvo com sucesso.")
+        self._set_app_feedback("Time salvo com sucesso.", tone="success")
 
     def _clear_current_team_profile(self) -> None:
         selection = self.admin_team_slot_listbox.curselection()
@@ -1694,7 +1733,7 @@ class ChampionshipApp(tk.Tk):
         if invalid_lines:
             messagebox.showwarning("Chave", "Algumas linhas foram ignoradas por estarem fora do formato esperado:\n\n" + "\n".join(invalid_lines))
         else:
-            messagebox.showinfo("Chave", "Datas da chave salvas com sucesso.")
+            self._set_app_feedback("Datas da chave salvas com sucesso.", tone="success")
 
     def _apply_panel_teams_to_bracket(self) -> None:
         team_names = [profile["name"].strip() for profile in self._get_active_team_profiles() if profile.get("name", "").strip()]
@@ -4229,12 +4268,12 @@ class ChampionshipApp(tk.Tk):
             self._save_state()
             self.official_lookup_status_var.set("Chaves HenrikDev salvas. A integracao oficial esta pronta para consultar.")
             self.henrik_api_key_var.set(", ".join(parsed_keys))
-            messagebox.showinfo("API HenrikDev", f"{len(parsed_keys)} chave(s) salva(s) com sucesso.")
+            self._set_app_feedback(f"{len(parsed_keys)} chave(s) HenrikDev salva(s) com sucesso.", tone="success")
             return
         self._store_henrik_api_keys([])
         self._save_state()
         self.official_lookup_status_var.set("Chaves HenrikDev removidas desta maquina.")
-        messagebox.showinfo("API HenrikDev", "Chaves removidas do app.")
+        self._set_app_feedback("Chaves HenrikDev removidas do app.", tone="success")
 
     def _safe_int(self, value: object) -> int:
         if isinstance(value, bool):
@@ -4299,7 +4338,7 @@ class ChampionshipApp(tk.Tk):
             return
         suggestion = self._build_official_suggestion(match)
         if not suggestion.get("has_data"):
-            messagebox.showinfo("Sugestao oficial", "Nenhuma sugestao oficial disponivel para aplicar.")
+            self._set_app_feedback("Nenhuma sugestao oficial disponivel para aplicar.", tone="info")
             return
         if suggestion.get("winner"):
             self.match_winner_var.set(str(suggestion.get("winner", "")))
@@ -4634,7 +4673,7 @@ class ChampionshipApp(tk.Tk):
         if not official_payload:
             if hasattr(self, "official_lookup_status_var"):
                 self.official_lookup_status_var.set(status_message or "Nenhum dado oficial foi localizado.")
-            messagebox.showinfo("Validacao oficial", status_message or "Nenhum dado oficial foi localizado.")
+            self._set_app_feedback(status_message or "Nenhum dado oficial foi localizado.", tone="info", persist_ms=7000)
             return
 
         current_match = self._get_match_by_id(match_id) or match_snapshot
@@ -4644,7 +4683,7 @@ class ChampionshipApp(tk.Tk):
         self._load_match_details(match_id)
         if hasattr(self, "official_lookup_status_var"):
             self.official_lookup_status_var.set(status_message or "Dados oficiais aplicados com sucesso.")
-        messagebox.showinfo("Validacao oficial", status_message or "Dados oficiais aplicados com sucesso.")
+        self._set_app_feedback(status_message or "Dados oficiais aplicados com sucesso.", tone="success", persist_ms=7000)
 
     def _draw_match_card(self, match: dict, position: tuple[int, int], card_size: tuple[int, int], scale: float) -> None:
         x_pos, y_pos = position
@@ -4893,7 +4932,7 @@ class ChampionshipApp(tk.Tk):
     def _save_cards_pool(self) -> None:
         self.state["cards_pool"] = clean_lines(self.cards_text.get("1.0", "end"))
         self._save_state()
-        messagebox.showinfo("Cartas", "Pool de cartas salvo com sucesso.")
+        self._set_app_feedback("Pool de cartas salvo com sucesso.", tone="success")
 
     def _draw_next_card(self) -> None:
         cards_pool = clean_lines(self.cards_text.get("1.0", "end"))
@@ -4905,7 +4944,7 @@ class ChampionshipApp(tk.Tk):
         drawn_cards = self.state.setdefault("drawn_cards", [])
         remaining_cards = [card for card in cards_pool if card not in drawn_cards]
         if not remaining_cards:
-            messagebox.showinfo("Cartas", "Todas as cartas ja foram sorteadas. Use o reset para recomecar.")
+            self._set_app_feedback("Todas as cartas ja foram sorteadas. Use o reset para recomecar.", tone="info")
             return
 
         next_card = random.choice(remaining_cards)
@@ -4922,7 +4961,7 @@ class ChampionshipApp(tk.Tk):
         self.state["players_pool"] = clean_lines(self.players_text.get("1.0", "end"))
         self.state["team_count"] = int(self.team_count_var.get())
         self._save_state()
-        messagebox.showinfo("Times", "Lista de jogadores salva.")
+        self._set_app_feedback("Lista de jogadores salva.", tone="success")
 
     def _draw_teams(self) -> None:
         players = clean_lines(self.players_text.get("1.0", "end"))
@@ -4991,7 +5030,7 @@ class ChampionshipApp(tk.Tk):
         self.state["bracket_size"] = bracket_size
         self._save_state()
         self._refresh_everything(preserve_selected_match=True)
-        messagebox.showinfo("Chave", "Times da chave salvos.")
+        self._set_app_feedback("Times da chave salvos.", tone="success")
 
     def _build_bracket(self) -> None:
         team_names = clean_lines(self.admin_bracket_teams_text.get("1.0", "end"))
@@ -5013,7 +5052,7 @@ class ChampionshipApp(tk.Tk):
     def _open_selected_match_from_bracket(self) -> None:
         match_id = self.state.get("selected_match_id", "")
         if not match_id:
-            messagebox.showinfo("Partidas", "Selecione uma partida na chave antes de abrir os detalhes.")
+            self._set_app_feedback("Selecione uma partida na chave antes de abrir os detalhes.", tone="warning")
             return
 
         self.state["selected_match_id"] = match_id
@@ -5122,7 +5161,7 @@ class ChampionshipApp(tk.Tk):
         }
         self._save_state()
         self._refresh_everything(preserve_selected_match=True)
-        messagebox.showinfo("Partidas", "Resultado salvo.")
+        self._set_app_feedback("Resultado salvo.", tone="success")
 
     def _clear_selected_match_result(self) -> None:
         match_id = self.state.get("selected_match_id", "")
@@ -5148,10 +5187,10 @@ class ChampionshipApp(tk.Tk):
 
         api_keys = self._ensure_henrik_api_keys()
         if not api_keys:
-            messagebox.showinfo(
-                "Validacao oficial",
-                "Sem chave de API nao da para consultar o historico oficial.\n\n"
-                "A API HenrikDev exige autenticacao para endpoints de partidas.",
+            self._set_app_feedback(
+                "Sem chave de API nao da para consultar o historico oficial. A API HenrikDev exige autenticacao para endpoints de partidas.",
+                tone="warning",
+                persist_ms=7000,
             )
             return
 

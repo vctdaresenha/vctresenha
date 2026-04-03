@@ -101,6 +101,28 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
         request.session["portal_session_last_seen"] = datetime.now(UTC).isoformat()
         return user
 
+    def build_footer_items() -> list[dict[str, str]]:
+        try:
+            footer_registrations_open = True
+            footer_session = session_factory()
+            try:
+                footer_registrations_open = get_registrations_open(footer_session)
+            finally:
+                footer_session.close()
+        except Exception:
+            footer_registrations_open = True
+
+        footer_items: list[dict[str, str]] = []
+        for item in settings.site.footer_items:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label", "")).strip()
+            value = str(item.get("value", "")).strip()
+            if label.lower() == "status":
+                value = "Inscricoes abertas" if footer_registrations_open else "Inscricoes fechadas"
+            footer_items.append({"label": label, "value": value})
+        return footer_items
+
     def build_template_context(request: FastAPIRequest, extra: dict | None = None) -> dict:
         context = {
             "request": request,
@@ -135,7 +157,7 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
                 "terms_modal_title": settings.site.terms_modal_title,
                 "terms_scroll_hint": settings.site.terms_scroll_hint,
                 "terms_sections": settings.site.terms_sections,
-                "footer_items": settings.site.footer_items,
+                "footer_items": build_footer_items(),
             },
             "turnstile_site_key": settings.portal.turnstile_site_key,
             "discord_enabled": bool(settings.portal.discord_client_id and settings.portal.discord_client_secret),

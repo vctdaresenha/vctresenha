@@ -171,12 +171,16 @@ body {
 }
 
 .login-status-message {
-  margin-top: 50px;
+  margin-top: 32px;
   width: 100%;
 }
 
+.login-help-message.login-status-message {
+  margin-top: 38px;
+}
+
 .inline-error.login-status-message {
-  margin-top: 56px;
+  margin-top: 22px;
 }
 
 .login-help-message {
