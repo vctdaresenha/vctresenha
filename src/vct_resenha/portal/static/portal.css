@@ -199,7 +199,7 @@ body {
 }
 
 .login-help-message.login-status-message {
-  margin-top: 28px;
+  margin-top: 24px;
 }
 
 .inline-error.login-status-message {
@@ -387,7 +387,7 @@ input[type="file"] {
 }
 
 .site-footer-note {
-  margin: 20px auto 0;
+  margin: 28px auto 0;
   display: grid;
   gap: 6px;
   text-align: center;
@@ -400,6 +400,23 @@ input[type="file"] {
   line-height: 1.6;
 }
 
+.site-footer-heart {
+  color: #ff4d67;
+}
+
+.site-footer-link {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.12);
+  transition: opacity 160ms ease, text-shadow 160ms ease;
+}
+
+.site-footer-link:hover {
+  opacity: 0.96;
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.18);
+}
+
 .status-blocks,
 .footer-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -407,7 +424,7 @@ input[type="file"] {
 
 .compact-footer-grid {
   width: min(640px, 100%);
-  margin: 0 auto;
+  margin: -6px auto 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
