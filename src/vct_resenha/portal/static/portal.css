@@ -194,12 +194,12 @@ body {
 }
 
 .login-status-message {
-  margin-top: 32px;
+  margin-top: 30px;
   width: 100%;
 }
 
 .login-help-message.login-status-message {
-  margin-top: 32px;
+  margin-top: 28px;
 }
 
 .inline-error.login-status-message {
