@@ -25,10 +25,14 @@ from .service import (
     get_team_by_id,
     get_dashboard_payload,
     get_or_create_portal_user,
+    get_portal_user_by_id,
+    get_view_only_team_for_user,
     list_approved_teams,
     list_pending_submissions,
+    list_portal_users,
     reject_submission,
     save_logo_upload,
+    set_portal_user_riot_id,
     set_registrations_open,
     serialize_team,
     serialize_submission,
@@ -267,7 +271,38 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
         except HTTPException:
             return RedirectResponse(url="/", status_code=303)
 
+        if not str(getattr(user, "riot_id", "") or "").strip():
+            return templates.TemplateResponse(
+                request=request,
+                name="onboarding.html",
+                context=build_template_context(
+                    request,
+                    {
+                        "user": user,
+                        "onboarding_error": request.session.pop("portal_onboarding_error", ""),
+                    },
+                ),
+            )
+
         dashboard = get_dashboard_payload(session, settings, user)
+        if not dashboard.get("accepted_team") and not dashboard.get("latest_submission"):
+            viewer_team = get_view_only_team_for_user(session, settings, user)
+            if viewer_team is not None:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="team_public.html",
+                    context=build_template_context(
+                        request,
+                        {
+                            "team_page_title": viewer_team.get("name", "Seu time"),
+                            "team_page_status": "Time aprovado",
+                            "team_page_status_class": "approved",
+                            "team_page_description": "Voce foi identificado como jogador deste time pelo Riot ID cadastrado no portal.",
+                            "team_payload": viewer_team,
+                            "team_review_notes": "",
+                        },
+                    ),
+                )
         registrations_open = get_registrations_open(session)
         return templates.TemplateResponse(
             request=request,
@@ -283,6 +318,28 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
                 },
             ),
         )
+
+    @app.post("/portal/profile/riot-id")
+    async def portal_profile_riot_id(
+        request: FastAPIRequest,
+        riot_id: str = Form(...),
+        session: Session = Depends(get_db),
+    ):
+        try:
+            user = get_current_user(request, session)
+        except HTTPException:
+            return RedirectResponse(url="/", status_code=303)
+
+        if str(getattr(user, "riot_id", "") or "").strip():
+            return RedirectResponse(url="/portal", status_code=303)
+
+        try:
+            set_portal_user_riot_id(session, user, riot_id)
+        except HTTPException as exc:
+            request.session["portal_onboarding_error"] = str(exc.detail)
+            return RedirectResponse(url="/portal", status_code=303)
+
+        return RedirectResponse(url="/portal", status_code=303)
 
     @app.post("/portal/team")
     async def submit_team(
@@ -421,6 +478,22 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
     async def admin_teams(request: FastAPIRequest, session: Session = Depends(get_db)):
         require_admin(request)
         return JSONResponse({"items": list_approved_teams(session, settings)})
+
+    @app.get("/api/admin/users")
+    async def admin_users(request: FastAPIRequest, session: Session = Depends(get_db)):
+        require_admin(request)
+        return JSONResponse({"items": list_portal_users(session, settings)})
+
+    @app.post("/api/admin/users/{user_id}/riot-id")
+    async def admin_update_user_riot_id(user_id: int, request: FastAPIRequest, session: Session = Depends(get_db)):
+        require_admin(request)
+        user = get_portal_user_by_id(session, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        payload = await request.json()
+        riot_id = str(payload.get("riot_id", "")).strip()
+        updated_user = set_portal_user_riot_id(session, user, riot_id)
+        return JSONResponse({"item": {"id": updated_user.id, "riot_id": updated_user.riot_id}})
 
     @app.get("/api/admin/settings")
     async def admin_settings(request: FastAPIRequest, session: Session = Depends(get_db)):

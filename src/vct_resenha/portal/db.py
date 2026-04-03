@@ -20,6 +20,8 @@ class PortalUser(Base):
     username: Mapped[str] = mapped_column(String(120))
     global_name: Mapped[str] = mapped_column(String(120), default="")
     avatar_hash: Mapped[str] = mapped_column(String(120), default="")
+    riot_id: Mapped[str] = mapped_column(String(64), default="")
+    riot_id_normalized: Mapped[str] = mapped_column(String(64), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -79,4 +81,16 @@ def build_engine(settings: AppSettings):
 def build_session_factory(settings: AppSettings) -> sessionmaker:
     engine = build_engine(settings)
     Base.metadata.create_all(engine)
+    with engine.begin() as connection:
+        existing_columns = {
+            str(row[1]).strip().lower()
+            for row in connection.exec_driver_sql("PRAGMA table_info(portal_users)").fetchall()
+        }
+        if "riot_id" not in existing_columns:
+            connection.exec_driver_sql("ALTER TABLE portal_users ADD COLUMN riot_id VARCHAR(64) DEFAULT ''")
+        if "riot_id_normalized" not in existing_columns:
+            connection.exec_driver_sql("ALTER TABLE portal_users ADD COLUMN riot_id_normalized VARCHAR(64) DEFAULT ''")
+        connection.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_portal_users_riot_id_normalized ON portal_users (riot_id_normalized) WHERE riot_id_normalized IS NOT NULL AND riot_id_normalized != ''"
+        )
     return sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)

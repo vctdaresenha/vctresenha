@@ -36,6 +36,14 @@ def normalize_team_name(value: str) -> str:
     return str(value or "").strip()
 
 
+def normalize_riot_id(value: str) -> str:
+    parsed_riot_id = parse_riot_id(str(value or "").strip())
+    if not parsed_riot_id:
+        return ""
+    player_name, player_tag = parsed_riot_id
+    return f"{player_name.strip().lower()}#{player_tag.strip().lower()}"
+
+
 def validate_team_form(payload: TeamFormPayload) -> None:
     team_name = normalize_team_name(payload.name)
     if not team_name:
@@ -162,10 +170,54 @@ def get_or_create_portal_user(session: Session, discord_payload: dict) -> Portal
     user.username = str(discord_payload.get("username", "")).strip() or user.username
     user.global_name = str(discord_payload.get("global_name", "")).strip()
     user.avatar_hash = str(discord_payload.get("avatar", "")).strip()
+    user.riot_id = str(getattr(user, "riot_id", "") or "").strip()
+    user.riot_id_normalized = normalize_riot_id(str(getattr(user, "riot_id", "") or ""))
     user.updated_at = datetime.utcnow()
     session.commit()
     session.refresh(user)
     return user
+
+
+def set_portal_user_riot_id(session: Session, user: PortalUser, riot_id: str) -> PortalUser:
+    parsed_riot_id = parse_riot_id(str(riot_id or "").strip())
+    if not parsed_riot_id:
+        raise HTTPException(status_code=400, detail="Informe o nick no formato Nick#TAG.")
+
+    normalized_riot_id = normalize_riot_id(riot_id)
+    existing_user = session.scalar(
+        select(PortalUser).where(
+            PortalUser.riot_id_normalized == normalized_riot_id,
+            PortalUser.id != user.id,
+        )
+    )
+    if existing_user is not None:
+        raise HTTPException(status_code=400, detail="Esse nick do Valorant ja esta vinculado a outra conta do Discord.")
+
+    player_name, player_tag = parsed_riot_id
+    user.riot_id = f"{player_name}#{player_tag}"
+    user.riot_id_normalized = normalized_riot_id
+    user.updated_at = datetime.utcnow()
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def get_portal_user_by_id(session: Session, user_id: int) -> PortalUser | None:
+    return session.get(PortalUser, user_id)
+
+
+def get_view_only_team_for_user(session: Session, team_settings: AppSettings, user: PortalUser) -> dict | None:
+    normalized_riot_id = normalize_riot_id(str(getattr(user, "riot_id", "") or ""))
+    if not normalized_riot_id:
+        return None
+
+    teams = session.scalars(select(PortalTeam).order_by(PortalTeam.updated_at.desc(), PortalTeam.id.asc())).all()
+    for team in teams:
+        players = list(team.players or [])
+        non_captain_players = players[1:] if len(players) > 1 else []
+        if any(normalize_riot_id(player) == normalized_riot_id for player in non_captain_players):
+            return serialize_team(team_settings, team)
+    return None
 
 
 def get_dashboard_payload(session: Session, settings: AppSettings, user: PortalUser) -> dict:
@@ -346,6 +398,35 @@ def list_pending_submissions(session: Session, settings: AppSettings) -> list[di
 def list_approved_teams(session: Session, settings: AppSettings) -> list[dict]:
     teams = session.scalars(select(PortalTeam).order_by(PortalTeam.updated_at.desc(), PortalTeam.id.asc())).all()
     return [serialize_team(settings, team) for team in teams if team is not None]
+
+
+def serialize_portal_user(settings: AppSettings, user: PortalUser | None) -> dict | None:
+    if user is None:
+        return None
+
+    team_payload = serialize_team(settings, user.team) if getattr(user, "team", None) else None
+    submissions = sorted(list(user.submissions or []), key=lambda item: item.submitted_at or datetime.min, reverse=True)
+    latest_submission = submissions[0] if submissions else None
+    latest_submission_payload = serialize_submission(settings, latest_submission) if latest_submission else None
+
+    return {
+        "id": user.id,
+        "discord_id": user.discord_id,
+        "username": user.username,
+        "global_name": user.global_name,
+        "riot_id": user.riot_id,
+        "created_at": user.created_at.isoformat() if user.created_at else "",
+        "updated_at": user.updated_at.isoformat() if user.updated_at else "",
+        "has_team": team_payload is not None,
+        "team": team_payload,
+        "submission_count": len(submissions),
+        "latest_submission": latest_submission_payload,
+    }
+
+
+def list_portal_users(session: Session, settings: AppSettings) -> list[dict]:
+    users = session.scalars(select(PortalUser).order_by(PortalUser.updated_at.desc(), PortalUser.created_at.desc(), PortalUser.id.desc())).all()
+    return [serialize_portal_user(settings, user) for user in users if user is not None]
 
 
 def get_team_by_id(session: Session, team_id: int) -> PortalTeam | None:

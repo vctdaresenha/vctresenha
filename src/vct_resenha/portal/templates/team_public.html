@@ -15,6 +15,15 @@
 {% block content %}
 <section class="team-public-shell">
   <article class="glass-card team-public-card">
+    {% if request.session.get("portal_user_id") %}
+    <div class="title-row team-public-topbar">
+      <div class="stack-heading">
+        <span class="card-kicker">Visualizacao do time</span>
+      </div>
+      <a class="ghost-button" href="/logout">Sair</a>
+    </div>
+    {% endif %}
+
     <div class="status-pill {{ team_page_status_class }} team-public-status-pill">
       <span>Status</span>
       <strong>{{ team_page_status }}</strong>

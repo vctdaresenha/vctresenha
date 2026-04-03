@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block body_class %}portal-body login-body{% endblock %}
+{% block page_shell_class %}login-page-shell{% endblock %}
+
+{% block page_header %}
+<header class="brand-header dashboard-page-header">
+  <img class="brand-logo" src="{{ brand_logo_url }}" alt="{{ site.title }}">
+  <p class="eyebrow">Primeiro acesso</p>
+  <h1>Vincule seu nick do Valorant</h1>
+  <p class="subtitle">Esse cadastro acontece uma vez so para identificar seu time dentro do portal.</p>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="auth-shell onboarding-shell">
+  <article class="glass-card onboarding-card">
+    <div class="stack-heading onboarding-heading">
+      <span class="card-kicker">Conta conectada</span>
+      <h2>{{ user.username }}</h2>
+      <p class="helper-text">Informe seu Riot ID no formato Nick#TAG. O mesmo nick nao pode ser vinculado em outra conta do Discord.</p>
+    </div>
+
+    {% if onboarding_error %}
+    <p class="inline-error">{{ onboarding_error }}</p>
+    {% endif %}
+
+    <form action="/portal/profile/riot-id" method="post" class="stack-form onboarding-form">
+      <label>
+        <span>Nick do Valorant</span>
+        <input name="riot_id" placeholder="Nick#TAG" required autocomplete="off">
+      </label>
+      <button class="primary-button submit-team-button" type="submit">Salvar nick</button>
+    </form>
+
+    <a class="ghost-button onboarding-logout" href="/logout">Sair</a>
+  </article>
+</section>
+{% endblock %}
+
+{% block page_footer %}{% endblock %}

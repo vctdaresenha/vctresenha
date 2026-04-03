@@ -105,7 +105,9 @@ class ChampionshipApp(tk.Tk):
         self.team_draw_animation_jobs: list[str] = []
         self.admin_team_form_state: list[dict] = []
         self.portal_pending_submissions: list[dict] = []
+        self.portal_users: list[dict] = []
         self.portal_registrations_open = True
+        self.selected_portal_user_id: int | None = None
         self.app_feedback_var = tk.StringVar(value="")
         self.app_feedback_clear_job: str | None = None
         self.mousewheel_routes: dict[str, tk.Widget] = {}
@@ -566,18 +568,21 @@ class ChampionshipApp(tk.Tk):
 
         self.admin_teams_tab = ttk.Frame(self.admin_notebook, style="Root.TFrame", padding=16)
         self.admin_portal_tab = ttk.Frame(self.admin_notebook, style="Root.TFrame", padding=16)
+        self.admin_users_tab = ttk.Frame(self.admin_notebook, style="Root.TFrame", padding=16)
         self.admin_bracket_tab = ttk.Frame(self.admin_notebook, style="Root.TFrame", padding=16)
         self.admin_matches_tab = ttk.Frame(self.admin_notebook, style="Root.TFrame", padding=16)
         self.admin_maps_tab = ttk.Frame(self.admin_notebook, style="Root.TFrame", padding=16)
 
         self.admin_notebook.add(self.admin_teams_tab, text="Times")
         self.admin_notebook.add(self.admin_portal_tab, text="Portal")
+        self.admin_notebook.add(self.admin_users_tab, text="Usuarios")
         self.admin_notebook.add(self.admin_bracket_tab, text="Chave")
         self.admin_notebook.add(self.admin_matches_tab, text="Partidas")
         self.admin_notebook.add(self.admin_maps_tab, text="Mapas")
 
         self._build_admin_teams_tab()
         self._build_admin_portal_tab()
+        self._build_admin_users_tab()
         self._build_admin_bracket_tab()
         self._build_admin_matches_tab()
         self._build_admin_maps_tab()
@@ -1586,6 +1591,95 @@ class ChampionshipApp(tk.Tk):
         if show_message:
             self._set_app_feedback("Times aprovados importados com sucesso para o aplicativo.", tone="success")
 
+    def _refresh_portal_users(self) -> None:
+        if not hasattr(self, "portal_users_listbox"):
+            return
+        try:
+            self.portal_users = self.portal_client.list_users()
+        except PortalClientError as exc:
+            self.portal_users = []
+            self.portal_users_status_var.set(f"Falha ao carregar usuarios: {exc}")
+            self._render_portal_users()
+            return
+
+        self.portal_users_status_var.set(f"{len(self.portal_users)} usuario(s) encontrados no portal.")
+        self._render_portal_users()
+
+    def _render_portal_users(self) -> None:
+        if not hasattr(self, "portal_users_listbox"):
+            return
+        self.portal_users_listbox.delete(0, "end")
+        for item in self.portal_users:
+            username = str(item.get("username", "Usuario")).strip() or "Usuario"
+            team_payload = item.get("team") if isinstance(item.get("team"), dict) else None
+            team_name = str(team_payload.get("name", "")).strip() if team_payload else ""
+            suffix = f" | {team_name}" if team_name else ""
+            self.portal_users_listbox.insert("end", f"{username}{suffix}")
+        if self.portal_users:
+            self.portal_users_listbox.selection_set(0)
+            self._load_selected_portal_user()
+        else:
+            self.portal_user_summary_var.set("Nenhum usuario do portal encontrado ainda.")
+
+    def _load_selected_portal_user(self, _event=None) -> None:
+        if not hasattr(self, "portal_users_listbox"):
+            return
+        selection = self.portal_users_listbox.curselection()
+        if not selection:
+            self.selected_portal_user_id = None
+            if hasattr(self, "portal_user_riot_id_var"):
+                self.portal_user_riot_id_var.set("")
+            self.portal_user_summary_var.set("Selecione um usuario para ver os detalhes.")
+            return
+        item = self.portal_users[selection[0]]
+        self.selected_portal_user_id = int(item.get("id", 0) or 0) or None
+        team_payload = item.get("team") if isinstance(item.get("team"), dict) else None
+        latest_submission = item.get("latest_submission") if isinstance(item.get("latest_submission"), dict) else None
+        if hasattr(self, "portal_user_riot_id_var"):
+            self.portal_user_riot_id_var.set(str(item.get("riot_id", "") or ""))
+        lines = [
+            f"Username: {item.get('username', '-')}",
+            f"Nome global: {item.get('global_name', '-') or '-'}",
+            f"Discord ID: {item.get('discord_id', '-')}",
+            f"Riot ID: {item.get('riot_id', '-') or '-'}",
+            f"Entrou em: {item.get('created_at', '-') or '-'}",
+            f"Ultima atividade: {item.get('updated_at', '-') or '-'}",
+            f"Total de envios: {item.get('submission_count', 0)}",
+            f"Time aprovado: {team_payload.get('name', '-') if team_payload else '-'}",
+        ]
+        if latest_submission:
+            lines.extend([
+                "",
+                f"Ultimo envio: {latest_submission.get('name', '-')}",
+                f"Status do envio: {latest_submission.get('status', '-')}",
+                f"Enviado em: {latest_submission.get('submitted_at', '-')}",
+            ])
+        self.portal_user_summary_var.set("\n".join(lines))
+
+    def _save_selected_portal_user_riot_id(self) -> None:
+        if not self.selected_portal_user_id:
+            self._set_app_feedback("Selecione um usuario antes de salvar o Riot ID.", tone="warning")
+            return
+        riot_id = str(self.portal_user_riot_id_var.get() if hasattr(self, "portal_user_riot_id_var") else "").strip()
+        if not riot_id:
+            self._set_app_feedback("Informe um Riot ID no formato Nick#TAG.", tone="warning")
+            return
+        try:
+            self.portal_client.update_user_riot_id(self.selected_portal_user_id, riot_id)
+        except PortalClientError as exc:
+            self._set_app_feedback(str(exc), tone="error", persist_ms=7000)
+            return
+        self._refresh_portal_users()
+        if self.selected_portal_user_id:
+            for index, item in enumerate(self.portal_users):
+                if int(item.get("id", 0) or 0) == self.selected_portal_user_id:
+                    self.portal_users_listbox.selection_clear(0, "end")
+                    self.portal_users_listbox.selection_set(index)
+                    self.portal_users_listbox.see(index)
+                    self._load_selected_portal_user()
+                    break
+        self._set_app_feedback("Riot ID do usuario atualizado com sucesso.", tone="success")
+
     def _load_selected_team_profile(self, _event=None) -> None:
         selection = self.admin_team_slot_listbox.curselection()
         if not selection:
@@ -2572,6 +2666,53 @@ class ChampionshipApp(tk.Tk):
         ttk.Button(detail_actions, text="Aprovar", style="Primary.TButton", command=self._approve_selected_portal_submission).pack(side="left")
         ttk.Button(detail_actions, text="Recusar", command=self._reject_selected_portal_submission).pack(side="left", padx=(10, 0))
         ttk.Button(detail_actions, text="Ver time", command=self._open_selected_portal_submission_view).pack(side="left", padx=(10, 0))
+
+    def _build_admin_users_tab(self) -> None:
+        self.admin_users_tab.columnconfigure(0, weight=1)
+        self.admin_users_tab.rowconfigure(1, weight=1)
+
+        header = tk.Frame(self.admin_users_tab, bg="#0b0b0c")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        header.columnconfigure(1, weight=1)
+
+        tk.Label(header, text="USUARIOS DO PORTAL", bg="#0b0b0c", fg="#f3f3f3", font=(self.button_font_family, 24)).grid(row=0, column=0, sticky="w")
+        self.portal_users_status_var = tk.StringVar(value="Carregue os usuarios que ja entraram no site.")
+        tk.Label(header, textvariable=self.portal_users_status_var, bg="#0b0b0c", fg="#a2a8b0", font=(self.title_font_family, 10), anchor="e").grid(row=0, column=1, sticky="ew", padx=(18, 0))
+
+        shell = tk.Frame(self.admin_users_tab, bg="#0b0b0c")
+        shell.grid(row=1, column=0, sticky="nsew")
+        shell.columnconfigure(0, weight=1)
+        shell.columnconfigure(1, weight=1)
+        shell.rowconfigure(1, weight=1)
+
+        top_actions = tk.Frame(shell, bg="#0b0b0c")
+        top_actions.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+        ttk.Button(top_actions, text="Atualizar usuarios", command=self._refresh_portal_users).pack(side="left")
+
+        list_card = tk.Frame(shell, bg="#111214", highlightthickness=1, highlightbackground="#1f2125", padx=16, pady=16)
+        list_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
+        list_card.columnconfigure(0, weight=1)
+        list_card.rowconfigure(1, weight=1)
+        tk.Label(list_card, text="USUARIOS CADASTRADOS", bg="#111214", fg="#f3f3f3", font=(self.button_font_family, 20)).grid(row=0, column=0, sticky="w")
+        self.portal_users_listbox = tk.Listbox(list_card, activestyle="none", borderwidth=0, highlightthickness=0, bg="#0d0f12", fg="#f1f3f5", selectbackground="#eef0f2", selectforeground="#050607")
+        self.portal_users_listbox.grid(row=1, column=0, sticky="nsew", pady=(12, 0))
+        self.portal_users_listbox.bind("<<ListboxSelect>>", self._load_selected_portal_user)
+
+        detail_card = tk.Frame(shell, bg="#111214", highlightthickness=1, highlightbackground="#1f2125", padx=16, pady=16)
+        detail_card.grid(row=1, column=1, sticky="nsew", padx=(8, 0))
+        detail_card.columnconfigure(0, weight=1)
+        detail_card.rowconfigure(1, weight=1)
+        tk.Label(detail_card, text="DETALHES DO USUARIO", bg="#111214", fg="#f3f3f3", font=(self.button_font_family, 20)).grid(row=0, column=0, sticky="w")
+        self.portal_user_summary_var = tk.StringVar(value="Selecione um usuario para ver os detalhes.")
+        tk.Label(detail_card, textvariable=self.portal_user_summary_var, justify="left", wraplength=460, bg="#111214", fg="#c6ccd3", anchor="nw", font=(self.title_font_family, 10)).grid(row=1, column=0, sticky="nsew", pady=(12, 0))
+
+        riot_form = tk.Frame(detail_card, bg="#111214")
+        riot_form.grid(row=2, column=0, sticky="ew", pady=(16, 0))
+        riot_form.columnconfigure(1, weight=1)
+        tk.Label(riot_form, text="Riot ID", bg="#111214", fg="#c6ccd3", font=(self.title_font_family, 10, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 10))
+        self.portal_user_riot_id_var = tk.StringVar(value="")
+        ttk.Entry(riot_form, textvariable=self.portal_user_riot_id_var).grid(row=0, column=1, sticky="ew")
+        ttk.Button(riot_form, text="Salvar Riot ID", command=self._save_selected_portal_user_riot_id).grid(row=0, column=2, sticky="e", padx=(10, 0))
 
     def _build_admin_bracket_tab(self) -> None:
         self.admin_bracket_tab.columnconfigure(0, weight=1)
@@ -5261,6 +5402,8 @@ class ChampionshipApp(tk.Tk):
                 self._refresh_map_views()
             elif str(self.admin_notebook.select()) == str(self.admin_portal_tab):
                 self._refresh_portal_admin_dashboard()
+            elif str(self.admin_notebook.select()) == str(self.admin_users_tab):
+                self._refresh_portal_users()
         except tk.TclError:
             return
 

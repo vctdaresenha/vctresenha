@@ -84,6 +84,10 @@ body {
   margin: 0 auto;
 }
 
+.onboarding-shell {
+  width: min(620px, 100%);
+}
+
 .auth-grid,
 .dashboard-grid {
   display: grid;
@@ -134,6 +138,25 @@ body {
 .auth-card-clean {
   padding: 30px;
   text-align: center;
+}
+
+.onboarding-card {
+  display: grid;
+  gap: 20px;
+  text-align: left;
+}
+
+.onboarding-heading {
+  gap: 8px;
+}
+
+.onboarding-form {
+  gap: 16px;
+}
+
+.onboarding-logout {
+  width: fit-content;
+  justify-self: center;
 }
 
 .auth-welcome {
@@ -361,6 +384,20 @@ input[type="file"] {
 .footer-grid {
   display: grid;
   gap: 14px;
+}
+
+.site-footer-note {
+  margin: 20px auto 0;
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.site-footer-note p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .status-blocks,
@@ -799,6 +836,10 @@ input[type="file"] {
 .team-public-card {
   display: grid;
   gap: 18px;
+}
+
+.team-public-topbar {
+  align-items: flex-start;
 }
 
 .team-public-status-pill {

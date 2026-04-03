@@ -90,6 +90,14 @@ class PortalAdminClient:
         payload = self._request("GET", "/api/admin/teams")
         return payload.get("items", []) if isinstance(payload, dict) else []
 
+    def list_users(self) -> list[dict]:
+        payload = self._request("GET", "/api/admin/users")
+        return payload.get("items", []) if isinstance(payload, dict) else []
+
+    def update_user_riot_id(self, user_id: int, riot_id: str) -> dict:
+        payload = self._request("POST", f"/api/admin/users/{user_id}/riot-id", {"riot_id": str(riot_id).strip()})
+        return payload if isinstance(payload, dict) else {}
+
     def get_admin_settings(self) -> dict:
         payload = self._request("GET", "/api/admin/settings")
         return payload if isinstance(payload, dict) else {}
