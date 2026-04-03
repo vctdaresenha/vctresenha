@@ -20,6 +20,8 @@ from .db import PortalUser, build_session_factory
 from .service import (
     TeamFormPayload,
     approve_submission,
+    clear_portal_user_team_data,
+    delete_portal_user_account,
     get_registrations_open,
     get_submission_by_id,
     get_team_by_id,
@@ -494,6 +496,24 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
         riot_id = str(payload.get("riot_id", "")).strip()
         updated_user = set_portal_user_riot_id(session, user, riot_id)
         return JSONResponse({"item": {"id": updated_user.id, "riot_id": updated_user.riot_id}})
+
+    @app.post("/api/admin/users/{user_id}/clear-team")
+    async def admin_clear_user_team(user_id: int, request: FastAPIRequest, session: Session = Depends(get_db)):
+        require_admin(request)
+        user = get_portal_user_by_id(session, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        clear_portal_user_team_data(session, user)
+        return JSONResponse({"ok": True})
+
+    @app.post("/api/admin/users/{user_id}/delete")
+    async def admin_delete_user(user_id: int, request: FastAPIRequest, session: Session = Depends(get_db)):
+        require_admin(request)
+        user = get_portal_user_by_id(session, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        delete_portal_user_account(session, user)
+        return JSONResponse({"ok": True})
 
     @app.get("/api/admin/settings")
     async def admin_settings(request: FastAPIRequest, session: Session = Depends(get_db)):

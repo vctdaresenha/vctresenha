@@ -98,6 +98,14 @@ class PortalAdminClient:
         payload = self._request("POST", f"/api/admin/users/{user_id}/riot-id", {"riot_id": str(riot_id).strip()})
         return payload if isinstance(payload, dict) else {}
 
+    def clear_user_team(self, user_id: int) -> dict:
+        payload = self._request("POST", f"/api/admin/users/{user_id}/clear-team")
+        return payload if isinstance(payload, dict) else {}
+
+    def delete_user(self, user_id: int) -> dict:
+        payload = self._request("POST", f"/api/admin/users/{user_id}/delete")
+        return payload if isinstance(payload, dict) else {}
+
     def get_admin_settings(self) -> dict:
         payload = self._request("GET", "/api/admin/settings")
         return payload if isinstance(payload, dict) else {}

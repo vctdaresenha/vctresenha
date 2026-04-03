@@ -1680,6 +1680,42 @@ class ChampionshipApp(tk.Tk):
                     break
         self._set_app_feedback("Riot ID do usuario atualizado com sucesso.", tone="success")
 
+    def _clear_selected_portal_user_team(self) -> None:
+        if not self.selected_portal_user_id:
+            self._set_app_feedback("Selecione um usuario antes de limpar o time aprovado.", tone="warning")
+            return
+        try:
+            self.portal_client.clear_user_team(self.selected_portal_user_id)
+        except PortalClientError as exc:
+            self._set_app_feedback(str(exc), tone="error", persist_ms=7000)
+            return
+        current_user_id = self.selected_portal_user_id
+        self._refresh_portal_users()
+        if current_user_id:
+            for index, item in enumerate(self.portal_users):
+                if int(item.get("id", 0) or 0) == current_user_id:
+                    self.portal_users_listbox.selection_clear(0, "end")
+                    self.portal_users_listbox.selection_set(index)
+                    self.portal_users_listbox.see(index)
+                    self._load_selected_portal_user()
+                    break
+        self._set_app_feedback("Time aprovado e historico de envios do usuario foram limpos no portal.", tone="success", persist_ms=7000)
+
+    def _delete_selected_portal_user(self) -> None:
+        if not self.selected_portal_user_id:
+            self._set_app_feedback("Selecione um usuario antes de excluir a conta do portal.", tone="warning")
+            return
+        try:
+            self.portal_client.delete_user(self.selected_portal_user_id)
+        except PortalClientError as exc:
+            self._set_app_feedback(str(exc), tone="error", persist_ms=7000)
+            return
+        self.selected_portal_user_id = None
+        if hasattr(self, "portal_user_riot_id_var"):
+            self.portal_user_riot_id_var.set("")
+        self._refresh_portal_users()
+        self._set_app_feedback("Usuario excluido do portal com sucesso.", tone="success", persist_ms=7000)
+
     def _load_selected_team_profile(self, _event=None) -> None:
         selection = self.admin_team_slot_listbox.curselection()
         if not selection:
@@ -2713,6 +2749,11 @@ class ChampionshipApp(tk.Tk):
         self.portal_user_riot_id_var = tk.StringVar(value="")
         ttk.Entry(riot_form, textvariable=self.portal_user_riot_id_var).grid(row=0, column=1, sticky="ew")
         ttk.Button(riot_form, text="Salvar Riot ID", command=self._save_selected_portal_user_riot_id).grid(row=0, column=2, sticky="e", padx=(10, 0))
+
+        destructive_actions = tk.Frame(detail_card, bg="#111214")
+        destructive_actions.grid(row=3, column=0, sticky="ew", pady=(16, 0))
+        ttk.Button(destructive_actions, text="Limpar time aprovado", command=self._clear_selected_portal_user_team).pack(side="left")
+        ttk.Button(destructive_actions, text="Excluir usuario", command=self._delete_selected_portal_user).pack(side="left", padx=(10, 0))
 
     def _build_admin_bracket_tab(self) -> None:
         self.admin_bracket_tab.columnconfigure(0, weight=1)

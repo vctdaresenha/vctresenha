@@ -206,6 +206,41 @@ def get_portal_user_by_id(session: Session, user_id: int) -> PortalUser | None:
     return session.get(PortalUser, user_id)
 
 
+def clear_portal_user_team_data(session: Session, user: PortalUser) -> None:
+    submissions = session.scalars(
+        select(TeamSubmission)
+        .where(TeamSubmission.owner_user_id == user.id)
+        .order_by(TeamSubmission.id.desc())
+    ).all()
+    team = session.scalar(select(PortalTeam).where(PortalTeam.owner_user_id == user.id))
+
+    for submission in submissions:
+        submission.team_id = None
+
+    if team is not None:
+        team.last_submission_id = None
+
+    session.flush()
+
+    if team is not None:
+        session.delete(team)
+        session.flush()
+
+    for submission in submissions:
+        session.delete(submission)
+
+    session.commit()
+
+
+def delete_portal_user_account(session: Session, user: PortalUser) -> None:
+    clear_portal_user_team_data(session, user)
+    refreshed_user = session.get(PortalUser, user.id)
+    if refreshed_user is None:
+        return
+    session.delete(refreshed_user)
+    session.commit()
+
+
 def get_view_only_team_for_user(session: Session, team_settings: AppSettings, user: PortalUser) -> dict | None:
     normalized_riot_id = normalize_riot_id(str(getattr(user, "riot_id", "") or ""))
     if not normalized_riot_id:
