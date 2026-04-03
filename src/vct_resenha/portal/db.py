@@ -43,6 +43,14 @@ class PortalTeam(Base):
     owner: Mapped[PortalUser] = relationship(back_populates="team")
 
 
+class PortalSetting(Base):
+    __tablename__ = "portal_settings"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TeamSubmission(Base):
     __tablename__ = "team_submissions"
 

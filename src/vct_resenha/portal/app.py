@@ -20,12 +20,17 @@ from .db import PortalUser, build_session_factory
 from .service import (
     TeamFormPayload,
     approve_submission,
+    get_registrations_open,
+    get_submission_by_id,
+    get_team_by_id,
     get_dashboard_payload,
     get_or_create_portal_user,
     list_approved_teams,
     list_pending_submissions,
     reject_submission,
     save_logo_upload,
+    set_registrations_open,
+    serialize_team,
     serialize_submission,
     upsert_team_submission,
 )
@@ -113,12 +118,23 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
                 "dashboard_eyebrow": settings.site.dashboard_eyebrow,
                 "dashboard_title": settings.site.dashboard_title,
                 "dashboard_subtitle": settings.site.dashboard_subtitle,
+                "discord_notice_kicker": settings.site.discord_notice_kicker,
+                "discord_notice_title": settings.site.discord_notice_title,
+                "discord_notice_text": settings.site.discord_notice_text,
+                "discord_notice_link_label": settings.site.discord_notice_link_label,
+                "discord_notice_link_url": settings.site.discord_notice_link_url,
                 "dashboard_form_title_new": settings.site.dashboard_form_title_new,
                 "dashboard_form_title_edit": settings.site.dashboard_form_title_edit,
                 "dashboard_form_helper_text": settings.site.dashboard_form_helper_text,
                 "dashboard_submit_label": settings.site.dashboard_submit_label,
                 "dashboard_success_message": settings.site.dashboard_success_message,
+                "registrations_closed_title": settings.site.registrations_closed_title,
+                "registrations_closed_text": settings.site.registrations_closed_text,
                 "terms_label": settings.site.terms_label,
+                "terms_modal_kicker": settings.site.terms_modal_kicker,
+                "terms_modal_title": settings.site.terms_modal_title,
+                "terms_scroll_hint": settings.site.terms_scroll_hint,
+                "terms_sections": settings.site.terms_sections,
                 "footer_items": settings.site.footer_items,
             },
             "turnstile_site_key": settings.portal.turnstile_site_key,
@@ -230,6 +246,7 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
             return RedirectResponse(url="/", status_code=303)
 
         dashboard = get_dashboard_payload(session, settings, user)
+        registrations_open = get_registrations_open(session)
         return templates.TemplateResponse(
             request=request,
             name="dashboard.html",
@@ -238,6 +255,7 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
                 {
                     "user": user,
                     "dashboard": dashboard,
+                    "registrations_open": registrations_open,
                     "success_message": request.session.pop("portal_success_message", ""),
                     "error_message": request.session.pop("portal_error_message", ""),
                 },
@@ -278,6 +296,54 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
 
         request.session["portal_success_message"] = settings.site.dashboard_success_message
         return RedirectResponse(url="/portal", status_code=303)
+
+    @app.get("/times/{team_id}", response_class=HTMLResponse)
+    async def public_team_view(team_id: int, request: FastAPIRequest, session: Session = Depends(get_db)):
+        team = get_team_by_id(session, team_id)
+        if team is None:
+            raise HTTPException(status_code=404, detail="Time nao encontrado.")
+        return templates.TemplateResponse(
+            request=request,
+            name="team_public.html",
+            context=build_template_context(
+                request,
+                {
+                    "team_page_title": team.name,
+                    "team_page_status": "Time visivel no portal",
+                    "team_page_status_class": "approved",
+                    "team_page_description": "Este e o time atualmente aprovado e visivel no portal do campeonato.",
+                    "team_payload": serialize_team(settings, team),
+                    "team_review_notes": "",
+                },
+            ),
+        )
+
+    @app.get("/envios/{submission_id}", response_class=HTMLResponse)
+    async def public_submission_view(submission_id: int, request: FastAPIRequest, session: Session = Depends(get_db)):
+        submission = get_submission_by_id(session, submission_id)
+        if submission is None:
+            raise HTTPException(status_code=404, detail="Envio nao encontrado.")
+        status_map = {
+            "pending": ("Envio em analise", "pending", "Este envio ainda esta aguardando a revisao da producao."),
+            "approved": ("Envio aprovado", "approved", "Este envio foi aprovado pela producao e pode ser sincronizado no painel."),
+            "rejected": ("Envio recusado", "rejected", "Este envio precisa de ajustes antes de uma nova submissao."),
+        }
+        title, status_class, description = status_map.get(submission.status, ("Envio do time", "idle", "Confira os dados enviados abaixo."))
+        return templates.TemplateResponse(
+            request=request,
+            name="team_public.html",
+            context=build_template_context(
+                request,
+                {
+                    "team_page_title": submission.name,
+                    "team_page_status": title,
+                    "team_page_status_class": status_class,
+                    "team_page_description": description,
+                    "team_payload": serialize_submission(settings, submission),
+                    "team_review_notes": submission.review_notes if submission.status == "rejected" else "",
+                },
+            ),
+        )
 
     @app.get("/brand/logo")
     async def brand_logo():
@@ -333,6 +399,18 @@ def create_portal_app(base_path: Path | None = None) -> FastAPI:
     async def admin_teams(request: FastAPIRequest, session: Session = Depends(get_db)):
         require_admin(request)
         return JSONResponse({"items": list_approved_teams(session, settings)})
+
+    @app.get("/api/admin/settings")
+    async def admin_settings(request: FastAPIRequest, session: Session = Depends(get_db)):
+        require_admin(request)
+        return JSONResponse({"registrations_open": get_registrations_open(session)})
+
+    @app.post("/api/admin/settings/registrations")
+    async def admin_set_registrations(request: FastAPIRequest, session: Session = Depends(get_db)):
+        require_admin(request)
+        payload = await request.json()
+        registrations_open = bool(payload.get("open", False))
+        return JSONResponse({"registrations_open": set_registrations_open(session, registrations_open)})
 
     @app.get("/api/health")
     async def healthcheck():

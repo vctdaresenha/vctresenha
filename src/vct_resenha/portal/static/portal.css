@@ -439,6 +439,18 @@ input[type="file"] {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.player-link-chip {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.player-link-chip:hover {
+  text-decoration: underline;
+}
+
 .terms-row {
   display: flex;
   align-items: flex-start;
@@ -449,6 +461,171 @@ input[type="file"] {
   width: 18px;
   min-height: 18px;
   margin-top: 2px;
+}
+
+.terms-consent {
+  display: grid;
+}
+
+.form-fieldset {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+
+.form-fieldset:disabled {
+  opacity: 0.58;
+}
+
+.terms-trigger {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.terms-trigger span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  line-height: 1.45;
+}
+
+.terms-checkbox-indicator {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  position: relative;
+}
+
+.terms-trigger[data-accepted="true"] .terms-checkbox-indicator {
+  background: rgba(98, 210, 162, 0.16);
+  border-color: rgba(98, 210, 162, 0.42);
+}
+
+.terms-trigger[data-accepted="true"] .terms-checkbox-indicator::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid #d8fff0;
+  border-bottom: 2px solid #d8fff0;
+  transform: rotate(45deg);
+}
+
+.terms-trigger[data-accepted="true"] span:last-child {
+  color: #d8fff0;
+}
+
+.modal-open {
+  overflow: hidden;
+}
+
+.terms-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.terms-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.terms-dialog {
+  position: relative;
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(86vh, 920px);
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  z-index: 1;
+}
+
+.terms-dialog-header,
+.terms-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.terms-close-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.terms-scrollbox {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 10px;
+  display: grid;
+  gap: 18px;
+}
+
+.terms-section {
+  display: grid;
+  gap: 10px;
+}
+
+.terms-section h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.terms-section p {
+  margin: 0;
+}
+
+.terms-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  display: grid;
+  gap: 8px;
+}
+
+.terms-dialog-footer {
+  display: grid;
+  gap: 14px;
+}
+
+.terms-scroll-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.terms-dialog .primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
 }
 
 .login-page-shell {
@@ -549,6 +726,36 @@ input[type="file"] {
   background: #6b77f5;
 }
 
+.registrations-closed-message {
+  display: grid;
+  gap: 8px;
+}
+
+.registrations-closed-message span {
+  color: inherit;
+  line-height: 1.5;
+}
+
+.team-public-shell {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.team-public-card {
+  display: grid;
+  gap: 18px;
+}
+
+.team-public-status-pill {
+  width: fit-content;
+}
+
+.team-summary-public {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .section-head {
   display: flex;
   align-items: center;
@@ -580,8 +787,16 @@ input[type="file"] {
   }
 
   .title-row,
-  .summary-head {
+  .summary-head,
+  .terms-dialog-header,
+  .terms-dialog-actions {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .terms-dialog {
+    width: min(100vw - 20px, 760px);
+    max-height: 88vh;
+    padding: 22px;
   }
 }

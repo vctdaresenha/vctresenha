@@ -90,6 +90,14 @@ class PortalAdminClient:
         payload = self._request("GET", "/api/admin/teams")
         return payload.get("items", []) if isinstance(payload, dict) else []
 
+    def get_admin_settings(self) -> dict:
+        payload = self._request("GET", "/api/admin/settings")
+        return payload if isinstance(payload, dict) else {}
+
+    def set_registrations_open(self, is_open: bool) -> dict:
+        payload = self._request("POST", "/api/admin/settings/registrations", {"open": bool(is_open)})
+        return payload if isinstance(payload, dict) else {}
+
     def download_logo(self, logo_url: str, output_path: Path) -> str:
         if not logo_url:
             return ""
@@ -126,6 +134,7 @@ class PortalAdminClient:
                     "name": str(team.get("name", "")).strip(),
                     "logo_path": logo_path,
                     "coach": str(team.get("coach", "")).strip(),
+                    "portal_view_url": str(team.get("public_view_url", "")).strip(),
                     "players": (list(players) + ["", "", "", "", ""])[:5],
                 }
             )

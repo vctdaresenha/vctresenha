@@ -3,8 +3,9 @@ from __future__ import annotations
 import secrets
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from io import BytesIO
+from pathlib import Path
+from urllib.parse import quote
 from urllib.error import HTTPError
 
 from fastapi import HTTPException, UploadFile
@@ -13,13 +14,14 @@ from sqlalchemy.orm import Session
 
 from ..config import AppSettings
 from ..valorant_api import HenrikRateLimitError, parse_riot_id, validate_br_riot_id
-from .db import PortalTeam, PortalUser, TeamSubmission
+from .db import PortalSetting, PortalTeam, PortalUser, TeamSubmission
 
 
 TEAM_NAME_MAX_LENGTH = 10
 SUBMISSION_PENDING = "pending"
 SUBMISSION_APPROVED = "approved"
 SUBMISSION_REJECTED = "rejected"
+REGISTRATIONS_OPEN_SETTING_KEY = "registrations_open"
 
 
 @dataclass(slots=True)
@@ -69,14 +71,51 @@ def _ensure_unique_team_name(session: Session, owner_user_id: int, name: str, cu
     if accepted_team is not None:
         raise HTTPException(status_code=400, detail="Esse nome de time ja esta em uso.")
 
-    pending_query = select(TeamSubmission).where(
+    submitted_query = select(TeamSubmission).where(
         func.lower(TeamSubmission.name) == normalized_name,
         TeamSubmission.owner_user_id != owner_user_id,
-        TeamSubmission.status == SUBMISSION_PENDING,
     )
-    pending_submission = session.scalar(pending_query)
-    if pending_submission is not None and pending_submission.id != current_submission_id:
-        raise HTTPException(status_code=400, detail="Esse nome de time ja esta em analise.")
+    submitted_team = session.scalar(submitted_query)
+    if submitted_team is not None and submitted_team.id != current_submission_id:
+        raise HTTPException(status_code=400, detail="Esse nome de time ja foi enviado anteriormente.")
+
+
+def build_tracker_url(riot_id: str) -> str:
+    parsed_riot_id = parse_riot_id(riot_id)
+    if not parsed_riot_id:
+        return ""
+    player_name, player_tag = parsed_riot_id
+    encoded_riot_id = quote(f"{player_name}#{player_tag}", safe="")
+    return f"https://tracker.gg/valorant/profile/riot/{encoded_riot_id}/overview"
+
+
+def build_player_entries(players: list[str] | None) -> list[dict[str, str]]:
+    return [
+        {
+            "display_name": str(player or "").strip(),
+            "tracker_url": build_tracker_url(str(player or "").strip()),
+        }
+        for player in list(players or [])
+        if str(player or "").strip()
+    ]
+
+
+def get_registrations_open(session: Session) -> bool:
+    setting = session.get(PortalSetting, REGISTRATIONS_OPEN_SETTING_KEY)
+    if setting is None:
+        return True
+    return str(setting.value).strip().lower() not in {"0", "false", "off", "no"}
+
+
+def set_registrations_open(session: Session, is_open: bool) -> bool:
+    setting = session.get(PortalSetting, REGISTRATIONS_OPEN_SETTING_KEY)
+    if setting is None:
+        setting = PortalSetting(key=REGISTRATIONS_OPEN_SETTING_KEY)
+        session.add(setting)
+    setting.value = "true" if is_open else "false"
+    session.commit()
+    session.refresh(setting)
+    return str(setting.value).strip().lower() == "true"
 
 
 def save_logo_upload(settings: AppSettings, upload: UploadFile) -> str:
@@ -151,6 +190,9 @@ def upsert_team_submission(
     logo_filename: str,
 ) -> TeamSubmission:
     validate_team_form(payload)
+
+    if not get_registrations_open(session):
+        raise HTTPException(status_code=400, detail="As inscricoes estao fechadas no momento.")
 
     existing_team = session.scalar(select(PortalTeam).where(PortalTeam.owner_user_id == user.id))
     existing_pending = session.scalar(
@@ -260,7 +302,9 @@ def serialize_team(settings: AppSettings, team: PortalTeam | None) -> dict | Non
         "name": team.name,
         "coach": team.coach,
         "players": list(team.players or []),
+        "player_entries": build_player_entries(team.players),
         "logo_url": f"/uploads/{team.logo_filename}" if team.logo_filename else "",
+        "public_view_url": f"{settings.portal.base_url}/times/{team.id}",
         "updated_at": team.updated_at.isoformat(),
     }
 
@@ -275,9 +319,11 @@ def serialize_submission(settings: AppSettings, submission: TeamSubmission | Non
         "name": submission.name,
         "coach": submission.coach,
         "players": list(submission.players or []),
+        "player_entries": build_player_entries(submission.players),
         "logo_url": f"/uploads/{submission.logo_filename}" if submission.logo_filename else "",
         "status": submission.status,
         "review_notes": submission.review_notes,
+        "public_view_url": f"{settings.portal.base_url}/envios/{submission.id}",
         "submitted_at": submission.submitted_at.isoformat(),
         "reviewed_at": submission.reviewed_at.isoformat() if submission.reviewed_at else "",
     }
@@ -292,7 +338,7 @@ def list_pending_submissions(session: Session, settings: AppSettings) -> list[di
     payloads = []
     for item in items:
         serialized = serialize_submission(settings, item) or {}
-        serialized["owner_name"] = item.owner.global_name or item.owner.username
+        serialized["owner_name"] = item.owner.username
         payloads.append(serialized)
     return payloads
 
@@ -300,3 +346,11 @@ def list_pending_submissions(session: Session, settings: AppSettings) -> list[di
 def list_approved_teams(session: Session, settings: AppSettings) -> list[dict]:
     teams = session.scalars(select(PortalTeam).order_by(PortalTeam.updated_at.desc(), PortalTeam.id.asc())).all()
     return [serialize_team(settings, team) for team in teams if team is not None]
+
+
+def get_team_by_id(session: Session, team_id: int) -> PortalTeam | None:
+    return session.get(PortalTeam, team_id)
+
+
+def get_submission_by_id(session: Session, submission_id: int) -> TeamSubmission | None:
+    return session.get(TeamSubmission, submission_id)

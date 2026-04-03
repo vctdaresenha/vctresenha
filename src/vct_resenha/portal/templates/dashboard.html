@@ -22,7 +22,7 @@
     <div class="title-row">
       <div class="stack-heading">
         <span class="card-kicker">Conta principal</span>
-        <h2>{{ user.global_name or user.username }}</h2>
+        <h2>{{ user.username }}</h2>
         <p class="helper-text compact-copy">Gerencie o envio do elenco e acompanhe cada etapa da analise por aqui.</p>
       </div>
       <a class="ghost-button" href="/logout">Sair</a>
@@ -65,10 +65,10 @@
     </div>
 
     <div class="analysis-card discord-notice-card">
-      <span class="card-kicker">Servidor oficial no Discord</span>
-      <h3>Todos os membros do time precisam entrar no servidor</h3>
-      <p class="helper-text">Antes de enviar ou alterar o elenco, garanta que capitão, coach e jogadores já estejam no Discord oficial do campeonato.</p>
-      <a class="discord-notice-link" href="https://discord.gg/QtnuVxR2r8" target="_blank" rel="noreferrer">Entrar no servidor</a>
+      <span class="card-kicker">{{ site.discord_notice_kicker }}</span>
+      <h3>{{ site.discord_notice_title }}</h3>
+      <p class="helper-text">{{ site.discord_notice_text }}</p>
+      <a class="discord-notice-link" href="{{ site.discord_notice_link_url }}" target="_blank" rel="noreferrer">{{ site.discord_notice_link_label }}</a>
     </div>
 
     {% if preview_team %}
@@ -87,10 +87,14 @@
         </div>
       </div>
       <div class="player-grid">
-        {% for player in preview_team.players %}
+        {% for player in preview_team.player_entries %}
         <div class="player-chip {% if loop.first %}captain{% endif %}">
           <span>{% if loop.first %}Capitão{% else %}Jogador {{ loop.index }}{% endif %}</span>
-          <strong>{{ player }}</strong>
+          {% if player.tracker_url %}
+          <a class="player-link-chip" href="{{ player.tracker_url }}" target="_blank" rel="noreferrer">{{ player.display_name }}</a>
+          {% else %}
+          <strong>{{ player.display_name }}</strong>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -112,7 +116,15 @@
       <p class="helper-text">{{ site.dashboard_form_helper_text }}</p>
     </div>
 
+    {% if not registrations_open %}
+    <div class="inline-error registrations-closed-message">
+      <strong>{{ site.registrations_closed_title }}</strong>
+      <span>{{ site.registrations_closed_text }}</span>
+    </div>
+    {% endif %}
+
     <form action="/portal/team" method="post" enctype="multipart/form-data" class="stack-form">
+      <fieldset class="form-fieldset" {% if not registrations_open %}disabled{% endif %}>
       <div class="field-grid two-columns">
         <label>
           <span>Nome do time</span>
@@ -153,15 +165,152 @@
         </label>
       </div>
 
-      <label class="terms-row">
-        <input name="accept_terms" type="checkbox" value="1" required>
-        <span>{{ site.terms_label }}</span>
-      </label>
+      <input id="accept_terms" name="accept_terms" type="hidden" value="">
+
+      <div class="terms-consent">
+        <button id="terms-trigger" class="terms-trigger" type="button" aria-haspopup="dialog" aria-controls="terms-modal" data-accepted="false">
+          <span class="terms-checkbox-indicator" aria-hidden="true"></span>
+          <span>{{ site.terms_label }}</span>
+        </button>
+      </div>
 
       <button class="primary-button" type="submit">{{ site.dashboard_submit_label }}</button>
+      </fieldset>
     </form>
   </article>
 </section>
+
+<div id="terms-modal" class="terms-modal" hidden>
+  <div id="terms-backdrop" class="terms-backdrop"></div>
+  <div class="terms-dialog glass-card" role="dialog" aria-modal="true" aria-labelledby="terms-title">
+    <div class="terms-dialog-header">
+      <div class="stack-heading">
+        <span class="card-kicker">{{ site.terms_modal_kicker }}</span>
+        <h2 id="terms-title">{{ site.terms_modal_title }}</h2>
+      </div>
+      <button id="terms-close" class="terms-close-button" type="button" aria-label="Fechar termos">×</button>
+    </div>
+
+    <div id="terms-scrollbox" class="terms-scrollbox">
+      {% for section in site.terms_sections %}
+      <section class="terms-section">
+        <h3>{{ section.title }}</h3>
+        {% for block in section.blocks %}
+          {% if block.type == 'list' %}
+            {% if block.title %}
+            <p>{{ block.title }}</p>
+            {% endif %}
+            <ul class="terms-list">
+              {% for item in block.items %}
+              <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p>{{ block.text }}</p>
+          {% endif %}
+        {% endfor %}
+      </section>
+      {% endfor %}
+    </div>
+
+    <div class="terms-dialog-footer">
+      <p id="terms-scroll-hint" class="terms-scroll-hint">{{ site.terms_scroll_hint }}</p>
+      <div class="terms-dialog-actions">
+        <button id="terms-decline" class="ghost-button" type="button">Recusar</button>
+        <button id="terms-accept" class="primary-button" type="button" disabled>Aceitar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block page_footer %}{% endblock %}
+
+{% block page_scripts %}
+<script>
+  (() => {
+    const modal = document.getElementById("terms-modal");
+    const trigger = document.getElementById("terms-trigger");
+    const hiddenInput = document.getElementById("accept_terms");
+    const closeButton = document.getElementById("terms-close");
+    const declineButton = document.getElementById("terms-decline");
+    const acceptButton = document.getElementById("terms-accept");
+    const backdrop = document.getElementById("terms-backdrop");
+    const scrollBox = document.getElementById("terms-scrollbox");
+    const scrollHint = document.getElementById("terms-scroll-hint");
+    const form = trigger?.closest("form");
+
+    if (!modal || !trigger || !hiddenInput || !closeButton || !declineButton || !acceptButton || !backdrop || !scrollBox || !scrollHint || !form) {
+      return;
+    }
+
+    let scrolledToEnd = false;
+
+    const syncAcceptanceState = (accepted) => {
+      trigger.dataset.accepted = accepted ? "true" : "false";
+      hiddenInput.value = accepted ? "1" : "";
+    };
+
+    const updateAcceptAvailability = () => {
+      const reachedBottom = scrollBox.scrollTop + scrollBox.clientHeight >= scrollBox.scrollHeight - 8;
+      if (reachedBottom) {
+        scrolledToEnd = true;
+        acceptButton.disabled = false;
+        scrollHint.textContent = "Leitura concluida. Agora voce pode aceitar os termos.";
+      }
+    };
+
+    const openModal = () => {
+      modal.hidden = false;
+      document.body.classList.add("modal-open");
+      if (trigger.dataset.accepted !== "true") {
+        scrolledToEnd = false;
+        acceptButton.disabled = true;
+        scrollHint.textContent = "Leia até o final para liberar o aceite.";
+        scrollBox.scrollTop = 0;
+      } else {
+        scrolledToEnd = true;
+        acceptButton.disabled = false;
+        scrollHint.textContent = "Você já aceitou os termos. Revise se quiser antes de confirmar novamente.";
+      }
+    };
+
+    const closeModal = () => {
+      modal.hidden = true;
+      document.body.classList.remove("modal-open");
+    };
+
+    trigger.addEventListener("click", openModal);
+    closeButton.addEventListener("click", closeModal);
+    backdrop.addEventListener("click", closeModal);
+    declineButton.addEventListener("click", () => {
+      syncAcceptanceState(false);
+      closeModal();
+    });
+    acceptButton.addEventListener("click", () => {
+      if (!scrolledToEnd) {
+        return;
+      }
+      syncAcceptanceState(true);
+      closeModal();
+    });
+    scrollBox.addEventListener("scroll", updateAcceptAvailability);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.hidden) {
+        closeModal();
+      }
+    });
+
+    form.addEventListener("submit", (event) => {
+      if (hiddenInput.value === "1") {
+        return;
+      }
+      event.preventDefault();
+      openModal();
+    });
+
+    syncAcceptanceState(false);
+  })();
+</script>
+{% endblock %}

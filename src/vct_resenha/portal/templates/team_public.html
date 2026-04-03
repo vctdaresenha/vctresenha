@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block body_class %}portal-body dashboard-body{% endblock %}
+{% block page_shell_class %}dashboard-page-shell{% endblock %}
+
+{% block page_header %}
+<header class="brand-header dashboard-page-header">
+  <img class="brand-logo" src="{{ brand_logo_url }}" alt="{{ site.title }}">
+  <p class="eyebrow">{{ site.dashboard_eyebrow }}</p>
+  <h1>{{ team_page_title }}</h1>
+  <p class="subtitle">{{ team_page_description }}</p>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="team-public-shell">
+  <article class="glass-card team-public-card">
+    <div class="status-pill {{ team_page_status_class }} team-public-status-pill">
+      <span>Status</span>
+      <strong>{{ team_page_status }}</strong>
+    </div>
+
+    <div class="team-summary team-summary-public">
+      <div class="section-head">
+        <div>
+          <span class="card-kicker">Time enviado</span>
+          <h3>{{ team_payload.name }}</h3>
+        </div>
+      </div>
+      <div class="summary-head">
+        <img class="team-logo" src="{{ team_payload.logo_url }}" alt="{{ team_payload.name }}">
+        <div>
+          <h3>{{ team_payload.name }}</h3>
+          <p>Coach: {{ team_payload.coach }}</p>
+        </div>
+      </div>
+      <div class="player-grid">
+        {% for player in team_payload.player_entries %}
+        <div class="player-chip {% if loop.first %}captain{% endif %}">
+          <span>{% if loop.first %}Capitão{% else %}Jogador {{ loop.index }}{% endif %}</span>
+          {% if player.tracker_url %}
+          <a class="player-link-chip" href="{{ player.tracker_url }}" target="_blank" rel="noreferrer">{{ player.display_name }}</a>
+          {% else %}
+          <strong>{{ player.display_name }}</strong>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if team_review_notes %}
+    <div class="review-note">
+      <span>Retorno da produção</span>
+      <strong>{{ team_review_notes }}</strong>
+    </div>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}
+
+{% block page_footer %}{% endblock %}

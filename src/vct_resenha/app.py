@@ -105,6 +105,7 @@ class ChampionshipApp(tk.Tk):
         self.team_draw_animation_jobs: list[str] = []
         self.admin_team_form_state: list[dict] = []
         self.portal_pending_submissions: list[dict] = []
+        self.portal_registrations_open = True
         self.mousewheel_routes: dict[str, tk.Widget] = {}
         self.map_catalog = self._build_fallback_map_catalog()
         self.map_catalog_loaded = True
@@ -627,6 +628,7 @@ class ChampionshipApp(tk.Tk):
             "slot": slot_index,
             "name": "",
             "logo_path": "",
+            "portal_view_url": "",
             "coach": "",
             "players": ["", "", "", "", ""],
         }
@@ -666,6 +668,7 @@ class ChampionshipApp(tk.Tk):
                     "slot": slot_index,
                     "name": source.get("name", "") if isinstance(source, dict) else "",
                     "logo_path": source.get("logo_path", "") if isinstance(source, dict) else "",
+                    "portal_view_url": source.get("portal_view_url", "") if isinstance(source, dict) else "",
                     "coach": source.get("coach", "") if isinstance(source, dict) else "",
                     "players": (list(players) + ["", "", "", "", ""])[:5],
                 }
@@ -1010,6 +1013,13 @@ class ChampionshipApp(tk.Tk):
             return
         webbrowser.open(portal_url)
 
+    def _open_portal_page(self, url: str, missing_message: str) -> None:
+        normalized_url = str(url or "").strip()
+        if not normalized_url:
+            messagebox.showwarning("Portal", missing_message)
+            return
+        webbrowser.open(normalized_url)
+
     def _bind_global_mousewheel_events(self) -> None:
         self.bind_all("<MouseWheel>", self._handle_global_mousewheel, add="+")
         self.bind_all("<Button-4>", self._handle_global_mousewheel, add="+")
@@ -1159,6 +1169,21 @@ class ChampionshipApp(tk.Tk):
             card_actions.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(14, 0))
             tk.Button(
                 card_actions,
+                text="VER TIME",
+                command=lambda current_slot=slot_index: self._open_team_profile_portal_view(current_slot),
+                relief="flat",
+                borderwidth=0,
+                bg="#f3f3f3",
+                fg="#050607",
+                activebackground="#ffffff",
+                activeforeground="#000000",
+                cursor="hand2",
+                font=(self.button_font_family, 14),
+                padx=12,
+                pady=8,
+            ).pack(side="left")
+            tk.Button(
+                card_actions,
                 text="LIMPAR SLOT",
                 command=lambda current_slot=slot_index: self._clear_admin_team_form_slot(current_slot),
                 relief="flat",
@@ -1171,7 +1196,7 @@ class ChampionshipApp(tk.Tk):
                 font=(self.button_font_family, 14),
                 padx=12,
                 pady=8,
-            ).pack(anchor="e")
+            ).pack(side="right")
 
     def _refresh_admin_team_editor_from_state(self) -> None:
         if not self.admin_team_form_state:
@@ -1326,6 +1351,7 @@ class ChampionshipApp(tk.Tk):
                     "slot": slot_index,
                     "name": team_name,
                     "logo_path": normalized_logo_path,
+                    "portal_view_url": self._get_team_profiles()[slot_index].get("portal_view_url", ""),
                     "coach": coach_name,
                     "players": players,
                 }
@@ -1364,6 +1390,7 @@ class ChampionshipApp(tk.Tk):
         if not hasattr(self, "portal_pending_listbox"):
             return
         try:
+            settings_payload = self.portal_client.get_admin_settings()
             self.portal_pending_submissions = self.portal_client.list_pending_submissions()
             approved_teams = self.portal_client.list_approved_teams()
         except PortalClientError as exc:
@@ -1372,8 +1399,12 @@ class ChampionshipApp(tk.Tk):
             self._render_portal_pending_submissions()
             return
 
+        self.portal_registrations_open = bool(settings_payload.get("registrations_open", True))
+        if hasattr(self, "portal_registrations_button"):
+            self.portal_registrations_button.configure(text="Fechar inscrições" if self.portal_registrations_open else "Abrir inscrições")
+
         self.portal_admin_status_var.set(
-            f"{len(self.portal_pending_submissions)} submissao(oes) pendente(s) | {len(approved_teams)} time(s) aprovado(s) no backend."
+            f"{len(self.portal_pending_submissions)} submissao(oes) pendente(s) | {len(approved_teams)} time(s) aprovado(s) | Inscrições {'abertas' if self.portal_registrations_open else 'fechadas'}."
         )
         self._render_portal_pending_submissions()
 
@@ -1411,6 +1442,33 @@ class ChampionshipApp(tk.Tk):
             f"Lineup\n{'\n'.join(players_lines)}\n\n"
             f"Enviado em: {submission.get('submitted_at', '-')}"
         )
+
+    def _open_selected_portal_submission_view(self) -> None:
+        if not hasattr(self, "portal_pending_listbox"):
+            return
+        selection = self.portal_pending_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Portal", "Selecione uma submissao antes de abrir a pagina do time.")
+            return
+        submission = self.portal_pending_submissions[selection[0]]
+        self._open_portal_page(
+            str(submission.get("public_view_url", "")).strip(),
+            "Essa submissao ainda nao possui uma pagina publica disponivel.",
+        )
+
+    def _toggle_portal_registrations(self) -> None:
+        next_state = not self.portal_registrations_open
+        action_label = "abrir" if next_state else "fechar"
+        if not messagebox.askyesno("Portal", f"Deseja {action_label} as inscrições do site agora?"):
+            return
+        try:
+            payload = self.portal_client.set_registrations_open(next_state)
+        except PortalClientError as exc:
+            messagebox.showerror("Portal", str(exc))
+            return
+        self.portal_registrations_open = bool(payload.get("registrations_open", next_state))
+        self._refresh_portal_admin_dashboard()
+        messagebox.showinfo("Portal", f"Inscrições {'abertas' if self.portal_registrations_open else 'fechadas'} com sucesso.")
 
     def _approve_selected_portal_submission(self) -> None:
         if not hasattr(self, "portal_pending_listbox"):
@@ -1534,6 +1592,7 @@ class ChampionshipApp(tk.Tk):
             "slot": slot_index,
             "name": self.admin_team_name_var.get().strip(),
             "logo_path": self.admin_team_logo_var.get().strip(),
+            "portal_view_url": profiles[slot_index].get("portal_view_url", ""),
             "coach": self.admin_team_coach_var.get().strip(),
             "players": [player_var.get().strip() for player_var in self.admin_player_vars],
         }
@@ -1558,6 +1617,16 @@ class ChampionshipApp(tk.Tk):
         self._refresh_everything(preserve_selected_match=True)
         self._refresh_admin_team_slots()
         self._populate_admin_bracket_from_profiles()
+
+    def _open_team_profile_portal_view(self, slot_index: int) -> None:
+        profiles = self._get_team_profiles()
+        if slot_index < 0 or slot_index >= len(profiles):
+            return
+        profile = profiles[slot_index]
+        self._open_portal_page(
+            str(profile.get("portal_view_url", "")).strip(),
+            "Esse time ainda nao tem uma pagina publica no portal. Aprove ou importe um time do backend primeiro.",
+        )
 
     def _handle_team_count_change(self, _event=None) -> None:
         team_count = int(self.team_count_var.get())
@@ -2437,6 +2506,8 @@ class ChampionshipApp(tk.Tk):
         top_actions.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
         ttk.Button(top_actions, text="Atualizar fila", command=self._refresh_portal_admin_dashboard).pack(side="left")
         ttk.Button(top_actions, text="Importar times aprovados", command=self._import_approved_teams_from_portal).pack(side="left", padx=(10, 0))
+        self.portal_registrations_button = ttk.Button(top_actions, text="Fechar inscrições", command=self._toggle_portal_registrations)
+        self.portal_registrations_button.pack(side="left", padx=(10, 0))
 
         list_card = tk.Frame(actions, bg="#111214", highlightthickness=1, highlightbackground="#1f2125", padx=16, pady=16)
         list_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
@@ -2461,6 +2532,7 @@ class ChampionshipApp(tk.Tk):
         detail_actions.grid(row=2, column=0, sticky="ew", pady=(16, 0))
         ttk.Button(detail_actions, text="Aprovar", style="Primary.TButton", command=self._approve_selected_portal_submission).pack(side="left")
         ttk.Button(detail_actions, text="Recusar", command=self._reject_selected_portal_submission).pack(side="left", padx=(10, 0))
+        ttk.Button(detail_actions, text="Ver time", command=self._open_selected_portal_submission_view).pack(side="left", padx=(10, 0))
 
     def _build_admin_bracket_tab(self) -> None:
         self.admin_bracket_tab.columnconfigure(0, weight=1)
