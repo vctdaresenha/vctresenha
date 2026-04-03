@@ -176,7 +176,7 @@ body {
 }
 
 .login-help-message.login-status-message {
-  margin-top: 38px;
+  margin-top: 32px;
 }
 
 .inline-error.login-status-message {
@@ -586,9 +586,11 @@ input[type="file"] {
   width: min(760px, calc(100vw - 32px));
   max-height: min(86vh, 920px);
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 18px;
   padding: 28px;
   z-index: 1;
+  overflow: hidden;
 }
 
 .terms-dialog-header,
@@ -612,10 +614,35 @@ input[type="file"] {
 
 .terms-scrollbox {
   min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
   padding-right: 10px;
   display: grid;
   gap: 18px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) rgba(255, 255, 255, 0.04);
+}
+
+.terms-scrollbox::-webkit-scrollbar {
+  width: 10px;
+}
+
+.terms-scrollbox::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.terms-scrollbox::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.14) 100%);
+  background-clip: padding-box;
+}
+
+.terms-scrollbox::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.2) 100%);
+  background-clip: padding-box;
 }
 
 .terms-section {
